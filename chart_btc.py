@@ -119,37 +119,35 @@ def build_chart(df: pd.DataFrame, support: list[float], resistance: list[float],
         volume=True,
         figsize=(14, 8),
         returnfig=True,
-        title=f"\nBTC/USD — {INTERVAL.upper()} | آخرین قیمت: ${last_close:,.2f}",
-        ylabel="قیمت (USD)",
-        ylabel_lower="حجم",
+        title=f"BTC/USD — {INTERVAL.upper()} | Last: ${last_close:,.2f}",
+        ylabel="Price (USD)",
+        ylabel_lower="Volume",
         datetime_format="%m-%d %H:%M",
+        tight_layout=True,
     )
 
     ax_price = axes[0]
 
-    for level in support:
-        ax_price.axhline(level, color="#22c55e", linestyle="--", linewidth=1.0, alpha=0.75)
+    def label_level(level: float, text: str, color: str) -> None:
+        ax_price.axhline(level, color=color, linestyle="--", linewidth=1.0, alpha=0.75)
         ax_price.text(
-            df.index[-1],
+            0.99,
             level,
-            f"  حمایت ${level:,.0f}",
-            color="#22c55e",
+            text,
+            transform=ax_price.get_yaxis_transform(),
+            color=color,
             va="center",
+            ha="right",
             fontsize=9,
             fontweight="bold",
+            clip_on=False,
         )
 
+    for level in support:
+        label_level(level, f"Support ${level:,.0f}", "#22c55e")
+
     for level in resistance:
-        ax_price.axhline(level, color="#ef4444", linestyle="--", linewidth=1.0, alpha=0.75)
-        ax_price.text(
-            df.index[-1],
-            level,
-            f"  مقاومت ${level:,.0f}",
-            color="#ef4444",
-            va="center",
-            fontsize=9,
-            fontweight="bold",
-        )
+        label_level(level, f"Resistance ${level:,.0f}", "#ef4444")
 
     entry_low = float(ema20.iloc[-1] * 0.998)
     entry_high = float(ema20.iloc[-1] * 1.002)
@@ -158,9 +156,10 @@ def build_chart(df: pd.DataFrame, support: list[float], resistance: list[float],
 
     ax_price.axhspan(entry_low, entry_high, color="#3b82f6", alpha=0.15)
     ax_price.text(
-        df.index[int(len(df) * 0.55)],
+        0.55,
         (entry_low + entry_high) / 2,
-        "ناحیه ورود لانگ",
+        "Long Entry Zone",
+        transform=ax_price.get_yaxis_transform(),
         color="#93c5fd",
         ha="center",
         fontsize=9,
@@ -169,18 +168,20 @@ def build_chart(df: pd.DataFrame, support: list[float], resistance: list[float],
 
     ax_price.axhline(stop_loss, color="#f97316", linestyle=":", linewidth=1.2, alpha=0.9)
     ax_price.text(
-        df.index[int(len(df) * 0.08)],
+        0.08,
         stop_loss,
-        f"حد ضرر ${stop_loss:,.0f}",
+        f"Stop Loss ${stop_loss:,.0f}",
+        transform=ax_price.get_yaxis_transform(),
         color="#fdba74",
         fontsize=9,
     )
 
     ax_price.axhline(tp1, color="#a855f7", linestyle=":", linewidth=1.2, alpha=0.9)
     ax_price.text(
-        df.index[int(len(df) * 0.35)],
+        0.35,
         tp1,
-        f"هدف سود ${tp1:,.0f}",
+        f"Take Profit ${tp1:,.0f}",
+        transform=ax_price.get_yaxis_transform(),
         color="#d8b4fe",
         fontsize=9,
     )
@@ -188,11 +189,11 @@ def build_chart(df: pd.DataFrame, support: list[float], resistance: list[float],
     legend_handles = [
         mpatches.Patch(color="#f59e0b", label="EMA 20"),
         mpatches.Patch(color="#3b82f6", label="EMA 50"),
-        mpatches.Patch(color="#22c55e", label="حمایت"),
-        mpatches.Patch(color="#ef4444", label="مقاومت"),
-        mpatches.Patch(color="#3b82f6", alpha=0.3, label="ناحیه ورود"),
-        mpatches.Patch(color="#f97316", label="حد ضرر"),
-        mpatches.Patch(color="#a855f7", label="هدف سود"),
+        mpatches.Patch(color="#22c55e", label="Support"),
+        mpatches.Patch(color="#ef4444", label="Resistance"),
+        mpatches.Patch(color="#3b82f6", alpha=0.3, label="Entry Zone"),
+        mpatches.Patch(color="#f97316", label="Stop Loss"),
+        mpatches.Patch(color="#a855f7", label="Take Profit"),
     ]
     ax_price.legend(handles=legend_handles, loc="upper left", fontsize=8, framealpha=0.85)
 
@@ -200,13 +201,14 @@ def build_chart(df: pd.DataFrame, support: list[float], resistance: list[float],
     fig.text(
         0.01,
         0.01,
-        f"AnalysisOnTel | داده: Kraken Spot (BTC/USD) | زمان تولید: {timestamp}",
+        f"AnalysisOnTel | Kraken BTC/USD | Generated: {timestamp}",
         color="#64748b",
         fontsize=8,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=160, bbox_inches="tight", facecolor=fig.get_facecolor())
+    fig.set_size_inches(14, 8)
+    fig.savefig(output_path, dpi=150, facecolor=fig.get_facecolor(), pad_inches=0.25)
     plt.close(fig)
 
     return {
