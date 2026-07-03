@@ -59,8 +59,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_command))
     app.add_handler(CommandHandler("gozaresh", report_command))
-    # Telegram commands must be ASCII; accept plain Persian text too
-    app.add_handler(MessageHandler(filters.Regex(r"^(?i)(گزارش|gozaresh)$"), report_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^گزارش$"), report_command))
     return app
 
 
