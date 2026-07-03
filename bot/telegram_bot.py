@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from config import TELEGRAM_BOT_TOKEN
 from report.engine import generate_report
+from tracking.stats import format_stats_report
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "/report — گزارش کامل لحظه‌ای\n"
         "/gozaresh — همان گزارش\n"
         "یا بنویسید: گزارش\n"
+        "/stats — آمار عملکرد و Win Rate\n"
         "/help — راهنما\n\n"
         "قانون: جهت روزانه تعیین‌کننده است.\n"
         "خلاف روند بلندمدت = پرریسک ⛔"
@@ -51,7 +53,7 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text("⏳ در حال دریافت داده و تحلیل...")
 
     try:
-        _, text = generate_report()
+        _, text = generate_report(source="telegram_report")
         # Telegram message limit is 4096 chars
         if len(text) > 4000:
             text = text[:3990] + "\n..."
@@ -59,6 +61,15 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as exc:
         logger.exception("Report generation failed")
         await update.message.reply_text(f"❌ خطا در تولید گزارش: {exc}")
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        text = format_stats_report()
+        await update.message.reply_html(text)
+    except Exception as exc:
+        logger.exception("Stats failed")
+        await update.message.reply_text(f"❌ خطا در آمار: {exc}")
 
 
 def build_application() -> Application:
@@ -73,6 +84,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_command))
     app.add_handler(CommandHandler("gozaresh", report_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(MessageHandler(filters.TEXT & gozaresh_text, report_command))
     return app
 

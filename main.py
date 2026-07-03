@@ -10,8 +10,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="AnalysisOnTel BTC market report bot")
     parser.add_argument(
         "command",
-        choices=["report", "bot", "bot-scheduled"],
-        help="report=print once | bot=telegram polling | bot-scheduled=bot + candle alerts",
+        choices=["report", "stats", "bot", "bot-scheduled"],
+        help="report | stats | bot | bot-scheduled",
     )
     args = parser.parse_args()
 
@@ -24,6 +24,13 @@ def main() -> None:
 
         plain = re.sub(r"<[^>]+>", "", text)
         print(plain)
+        return
+
+    if args.command == "stats":
+        from tracking.stats import format_stats_report
+        import re
+
+        print(re.sub(r"<[^>]+>", "", format_stats_report()))
         return
 
     if args.command in ("bot", "bot-scheduled"):

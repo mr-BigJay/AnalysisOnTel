@@ -33,6 +33,8 @@ python3 -m venv "${APP_DIR}/venv"
 "${APP_DIR}/venv/bin/pip" install -r "${APP_DIR}/requirements.txt" -q
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+mkdir -p "${APP_DIR}/data"
+chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/data"
 
 echo "==> Environment file..."
 if [ ! -f /etc/analysisontel.env ]; then

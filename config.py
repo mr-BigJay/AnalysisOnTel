@@ -7,6 +7,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
+DATA_DIR = BASE_DIR / "data"
+PREDICTIONS_DB = DATA_DIR / "predictions.db"
 
 # Kraken pair for BTC/USD
 KRAKEN_PAIR = "XBTUSD"
@@ -30,3 +32,9 @@ TIMEFRAMES = {
 
 # Minimum quality score (0-100) to recommend entry
 MIN_ENTRY_SCORE = 70
+
+# Hours after a prediction before outcome evaluation (matches 4H candle)
+PREDICTION_EVAL_HOURS = int(os.getenv("PREDICTION_EVAL_HOURS", "4"))
+
+# Minimum minutes between duplicate logs for same bias/action
+PREDICTION_LOG_COOLDOWN_MIN = int(os.getenv("PREDICTION_LOG_COOLDOWN_MIN", "60"))

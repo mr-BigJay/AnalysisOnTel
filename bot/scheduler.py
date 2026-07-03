@@ -11,6 +11,7 @@ from telegram import Bot
 
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TIMEFRAMES
 from report.engine import generate_candle_alert
+from tracking.evaluator import evaluate_pending
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,15 @@ def _check_and_alert(timeframe: str) -> None:
         logger.exception("Candle alert failed for %s", timeframe)
 
 
+def _run_outcome_evaluation() -> None:
+    try:
+        n = evaluate_pending()
+        if n:
+            logger.info("Evaluated %s pending predictions", n)
+    except Exception:
+        logger.exception("Outcome evaluation failed")
+
+
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
 
@@ -60,6 +70,14 @@ def start_scheduler() -> BackgroundScheduler:
             id=f"candle_{tf}",
             replace_existing=True,
         )
+
+    scheduler.add_job(
+        _run_outcome_evaluation,
+        "interval",
+        minutes=15,
+        id="outcome_eval",
+        replace_existing=True,
+    )
 
     scheduler.start()
     logger.info("Candle-close scheduler started for: %s", list(TIMEFRAMES.keys()))
