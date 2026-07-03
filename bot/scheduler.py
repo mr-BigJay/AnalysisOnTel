@@ -12,6 +12,7 @@ from telegram import Bot
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TIMEFRAMES
 from report.engine import generate_candle_alert
 from tracking.evaluator import evaluate_pending
+from tracking.tuning import auto_tune
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,16 @@ def _run_outcome_evaluation() -> None:
         n = evaluate_pending()
         if n:
             logger.info("Evaluated %s pending predictions", n)
+        tuned = auto_tune()
+        if tuned and tuned.last_tune_reason and TELEGRAM_CHAT_IDS and TELEGRAM_BOT_TOKEN:
+            text = (
+                "🔧 <b>خود-اصلاح ربات</b>\n\n"
+                f"{tuned.last_tune_reason}\n\n"
+                f"حد ورود: {tuned.min_entry_score}\n"
+                f"حد چک‌لیست: {tuned.min_checklist_score}\n"
+                f"حداقل ✅: {tuned.min_checklist_passed}/10"
+            )
+            asyncio.run(_send_alerts(text))
     except Exception:
         logger.exception("Outcome evaluation failed")
 

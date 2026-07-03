@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from tracking.database import count_by_outcome, count_pending, fetch_recent
+from tracking.tuning import format_tuning_status
 
 
 OUTCOME_FA = {
@@ -72,5 +73,7 @@ def format_stats_report() -> str:
                 parts.append(f"↳ {row.outcome_note}")
 
     parts.append("")
-    parts.append("<i>ارزیابی خودکار هر ۴ ساعت پس از ثبت پیش‌بینی</i>")
+    parts.append(format_tuning_status())
+    parts.append("")
+    parts.append("<i>ارزیابی خودکار هر ۴ ساعت | خود-اصلاح بعد از ۱۵+ برد/باخت</i>")
     return "\n".join(parts)

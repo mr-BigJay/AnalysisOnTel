@@ -8,12 +8,16 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
-from config import MIN_ENTRY_SCORE
 from market.checklist import ChecklistResult, run_checklist
 from market.derivatives import DerivativesSnapshot, fetch_derivatives
 from market.indicators import ema, macd_histogram, rsi
 from market.levels import find_key_levels, nearest_support_resistance
 from market.types import Bias, TimeframeAnalysis, Trend
+from tracking.tuning import (
+    get_min_checklist_passed,
+    get_min_checklist_score,
+    get_min_entry_score,
+)
 
 @dataclass
 class TradeScenario:
@@ -259,10 +263,14 @@ def _determine_action(
             return "wait"
         return "no_signal"
 
+    min_entry = get_min_entry_score()
+    min_checklist = get_min_checklist_score()
+    min_passed = get_min_checklist_passed()
+
     if (
-        scenario.confidence >= MIN_ENTRY_SCORE
-        and checklist.score >= MIN_ENTRY_SCORE
-        and checklist.passed >= 8
+        scenario.confidence >= min_entry
+        and checklist.score >= min_checklist
+        and checklist.passed >= min_passed
         and not daily.is_ranging
         and not h4.is_ranging
     ):

@@ -9,11 +9,13 @@ from market.data import fetch_ohlcv
 from report.formatter import format_candle_close_alert, format_report
 from tracking.evaluator import evaluate_pending
 from tracking.logger import log_from_report
+from tracking.tuning import auto_tune
 
 
 def generate_report(source: str = "manual") -> tuple[MarketReport, str]:
     """Fetch live data, analyze, log prediction, return report and Telegram HTML text."""
     evaluate_pending()
+    auto_tune()
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
