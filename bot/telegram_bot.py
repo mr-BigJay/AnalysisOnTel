@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import TELEGRAM_BOT_TOKEN
 from report.engine import generate_report
@@ -19,7 +19,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "ربات گزارش بازار BTC — روزانه + ۴H + ۱H\n\n"
         "دستورات:\n"
         "/report — گزارش کامل لحظه‌ای\n"
-        "/گزارش — همان گزارش (فارسی)\n"
+        "/gozaresh — همان گزارش\n"
+        "یا بنویسید: گزارش\n"
         "/help — راهنما\n\n"
         "قانون: جهت روزانه تعیین‌کننده است.\n"
         "خلاف روند بلندمدت = پرریسک ⛔"
@@ -57,7 +58,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_command))
-    app.add_handler(CommandHandler("گزارش", report_command))
+    app.add_handler(CommandHandler("gozaresh", report_command))
+    # Telegram commands must be ASCII; accept plain Persian text too
+    app.add_handler(MessageHandler(filters.Regex(r"^(?i)(گزارش|gozaresh)$"), report_command))
     return app
 
 
