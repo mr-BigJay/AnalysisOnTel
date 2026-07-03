@@ -56,19 +56,35 @@ def detect_rsi_extreme(
     overbought: float = 70.0,
     oversold: float = 30.0,
 ) -> RsiExtreme | None:
-    """Return extreme zone if latest RSI is overbought or oversold."""
-    rsi_series = rsi(df["Close"])
-    if len(rsi_series) < 15:
+    """
+    Alert only when RSI crosses into OB/OS on the last *closed* candle.
+    Excludes the forming candle to avoid false spikes vs charting apps.
+    """
+    if len(df) < 17:
         return None
 
-    val = float(rsi_series.iloc[-1])
-    zone = current_rsi_zone(val, overbought, oversold)
-    if zone == RsiZone.NEUTRAL:
+    closed = df.iloc[:-1]
+    rsi_series = rsi(closed["Close"])
+    if len(rsi_series) < 16:
         return None
 
-    candle_ts = int(df.index[-1].timestamp())
-    price = float(df["Close"].iloc[-1])
-    return RsiExtreme(zone=zone, rsi_value=round(val, 1), price=price, candle_ts=candle_ts)
+    current = float(rsi_series.iloc[-1])
+    previous = float(rsi_series.iloc[-2])
+    if pd.isna(current) or pd.isna(previous):
+        return None
+
+    zone: RsiZone | None = None
+    if previous < overbought and current >= overbought:
+        zone = RsiZone.OVERBOUGHT
+    elif previous > oversold and current <= oversold:
+        zone = RsiZone.OVERSOLD
+
+    if zone is None:
+        return None
+
+    candle_ts = int(closed.index[-1].timestamp())
+    price = float(closed["Close"].iloc[-1])
+    return RsiExtreme(zone=zone, rsi_value=round(current, 1), price=price, candle_ts=candle_ts)
 
 
 def _swing_lows(series: pd.Series, window: int = 3) -> list[tuple[int, float]]:
@@ -103,10 +119,11 @@ def detect_rsi_divergence(
     Bullish: price lower low + RSI higher low.
     Bearish: price higher high + RSI lower high.
     """
-    if len(df) < lookback:
+    if len(df) < lookback + 1:
         return None
 
-    segment = df.tail(lookback).copy()
+    # Use closed candles only (drop forming bar)
+    segment = df.iloc[:-1].tail(lookback).copy()
     close = segment["Close"]
     rsi_series = rsi(close)
     n = len(segment)

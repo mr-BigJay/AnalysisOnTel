@@ -55,15 +55,19 @@ def _tf_label(tf: str) -> str:
     return STATUS_TIMEFRAMES.get(tf, {}).get("label", tf)
 
 
-def _fmt_extreme_alert(tf: str, zone: RsiZone, rsi_value: float, price: float) -> str:
+def _fmt_extreme_alert(tf: str, zone: RsiZone, rsi_value: float, price: float, candle_ts: int) -> str:
+    from datetime import datetime, timezone
+
+    candle_time = datetime.fromtimestamp(candle_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return (
         f"\u200f🔔 <b>هشدار RSI — {_tf_label(tf)}</b>\n"
         f"{'─' * 18}\n"
         f"وضعیت: <b>{_ZONE_FA[zone]}</b>\n"
-        f"RSI: {_ltr(str(rsi_value))}\n"
+        f"RSI (کندل بسته): {_ltr(str(rsi_value))}\n"
         f"قیمت: {_ltr(f'${price:,.1f}')}\n"
+        f"کندل: {_ltr(candle_time)}\n"
         f"{'─' * 18}\n"
-        f"⚠️ سیگنال هشدار است — ورود مستقیم توصیه نمی‌شود."
+        f"⚠️ ورود به ناحیه اشباع — ورود مستقیم توصیه نمی‌شود."
     )
 
 
@@ -91,7 +95,7 @@ def check_rsi_alerts() -> list[str]:
     for tf in RSI_ALERT_TIMEFRAMES:
         try:
             df = fetch_ohlcv(tf)
-            candle_ts = int(df.index[-1].timestamp())
+            closed_ts = int(df.index[-2].timestamp()) if len(df) >= 2 else 0
 
             extreme = detect_rsi_extreme(df, RSI_OVERBOUGHT, RSI_OVERSOLD)
             zone_key = f"{tf}_zone"
@@ -99,18 +103,22 @@ def check_rsi_alerts() -> list[str]:
 
             if extreme:
                 already_sent = (
-                    prev_zone.get("candle_ts") == candle_ts
+                    prev_zone.get("candle_ts") == extreme.candle_ts
                     and prev_zone.get("zone") == extreme.zone.value
                 )
                 if not already_sent:
-                    messages.append(_fmt_extreme_alert(tf, extreme.zone, extreme.rsi_value, extreme.price))
+                    messages.append(
+                        _fmt_extreme_alert(
+                            tf, extreme.zone, extreme.rsi_value, extreme.price, extreme.candle_ts
+                        )
+                    )
                     state[zone_key] = {
-                        "candle_ts": candle_ts,
+                        "candle_ts": extreme.candle_ts,
                         "zone": extreme.zone.value,
                         "rsi": extreme.rsi_value,
                     }
             else:
-                state[zone_key] = {"candle_ts": candle_ts, "zone": None}
+                state[zone_key] = {"candle_ts": closed_ts, "zone": None}
 
             divergence = detect_rsi_divergence(df)
             div_key = f"{tf}_div"
@@ -121,7 +129,7 @@ def check_rsi_alerts() -> list[str]:
                 if not already_sent:
                     messages.append(_fmt_divergence_alert(tf, divergence))
                     state[div_key] = {
-                        "candle_ts": candle_ts,
+                        "candle_ts": divergence.candle_ts,
                         "fingerprint": divergence.fingerprint,
                         "kind": divergence.kind.value,
                     }
