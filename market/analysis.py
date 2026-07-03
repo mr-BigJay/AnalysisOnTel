@@ -2,42 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 
+from config import MIN_ENTRY_SCORE
+from market.checklist import ChecklistResult, run_checklist
+from market.derivatives import DerivativesSnapshot, fetch_derivatives
 from market.indicators import ema, macd_histogram, rsi
-
-
-class Trend(str, Enum):
-    BULLISH = "bullish"
-    BEARISH = "bearish"
-    NEUTRAL = "neutral"
-
-
-Bias = Literal["long", "short", "wait"]
-
-
-@dataclass
-class TimeframeAnalysis:
-    key: str
-    label: str
-    price: float
-    trend: Trend
-    rsi: float
-    macd_hist: float
-    ema20: float
-    ema50: float
-    support: float
-    resistance: float
-    volume_ratio: float
-    is_ranging: bool
-    score: int
-    notes: list[str] = field(default_factory=list)
-
+from market.levels import find_key_levels, nearest_support_resistance
+from market.types import Bias, TimeframeAnalysis, Trend
 
 @dataclass
 class TradeScenario:
@@ -59,16 +35,13 @@ class MarketReport:
     daily: TimeframeAnalysis
     h4: TimeframeAnalysis
     h1: TimeframeAnalysis
+    derivatives: DerivativesSnapshot
+    checklist: ChecklistResult
     allowed_bias: Bias
     scenario: TradeScenario | None
     summary_lines: list[str]
     quality_score: int
     action: str  # full | watch | wait | no_signal
-
-
-def _swing_levels(df: pd.DataFrame, lookback: int = 30) -> tuple[float, float]:
-    recent = df.tail(lookback)
-    return float(recent["Low"].min()), float(recent["High"].max())
 
 
 def _detect_trend(close: pd.Series, ema20: pd.Series, ema50: pd.Series) -> Trend:
@@ -100,10 +73,17 @@ def _volume_ratio(df: pd.DataFrame, period: int = 20) -> float:
     return float(vol.iloc[-1]) / avg
 
 
+def _macd_rising(hist: pd.Series) -> bool:
+    if len(hist) < 3:
+        return False
+    return float(hist.iloc[-1]) > float(hist.iloc[-2])
+
+
 def _score_timeframe(
     trend: Trend,
     rsi_val: float,
     macd_val: float,
+    macd_rising: bool,
     volume_ratio: float,
     is_ranging: bool,
     align_with: Trend | None = None,
@@ -131,22 +111,26 @@ def _score_timeframe(
     if 40 <= rsi_val <= 60:
         score += 10
     elif rsi_val > 70:
-        score -= 10
+        score -= 12
         notes.append("RSI نزدیک اشباع خرید")
     elif rsi_val < 30:
-        score -= 10
+        score -= 12
         notes.append("RSI نزدیک اشباع فروش")
 
-    if macd_val > 0:
-        score += 5
+    if macd_val > 0 and macd_rising:
+        score += 10
+    elif macd_val < 0 and not macd_rising:
+        score += 8
+    elif macd_val > 0:
+        score += 4
     else:
-        score -= 5
+        score -= 4
 
     if volume_ratio >= 1.2:
         score += 10
         notes.append("حجم بالاتر از میانگین")
     elif volume_ratio < 0.8:
-        score -= 5
+        score -= 8
         notes.append("حجم پایین")
 
     if is_ranging:
@@ -156,29 +140,41 @@ def _score_timeframe(
     return max(0, min(100, score)), notes
 
 
-def analyze_timeframe(df: pd.DataFrame, key: str, label: str, align_with: Trend | None = None) -> TimeframeAnalysis:
+def analyze_timeframe(
+    df: pd.DataFrame,
+    key: str,
+    label: str,
+    align_with: Trend | None = None,
+) -> TimeframeAnalysis:
     close = df["Close"]
     ema20 = ema(close, 20)
     ema50 = ema(close, 50)
+    hist = macd_histogram(close)
     rsi_val = float(rsi(close).iloc[-1])
-    macd_val = float(macd_histogram(close).iloc[-1])
+    macd_val = float(hist.iloc[-1])
+    macd_up = _macd_rising(hist)
     trend = _detect_trend(close, ema20, ema50)
-    support, resistance = _swing_levels(df)
+    supports, resistances = find_key_levels(df)
+    price = float(close.iloc[-1])
+    support, resistance = nearest_support_resistance(price, supports, resistances)
     vol_ratio = _volume_ratio(df)
     ranging = _is_ranging(df)
-    score, notes = _score_timeframe(trend, rsi_val, macd_val, vol_ratio, ranging, align_with)
+    score, notes = _score_timeframe(trend, rsi_val, macd_val, macd_up, vol_ratio, ranging, align_with)
 
     return TimeframeAnalysis(
         key=key,
         label=label,
-        price=float(close.iloc[-1]),
+        price=price,
         trend=trend,
         rsi=round(rsi_val, 1),
         macd_hist=round(macd_val, 2),
+        macd_rising=macd_up,
         ema20=float(ema20.iloc[-1]),
         ema50=float(ema50.iloc[-1]),
         support=support,
         resistance=resistance,
+        supports=supports,
+        resistances=resistances,
         volume_ratio=round(vol_ratio, 2),
         is_ranging=ranging,
         score=score,
@@ -194,9 +190,20 @@ def _allowed_bias_from_daily(daily: Trend) -> Bias:
     return "wait"
 
 
-def _build_scenario(daily: TimeframeAnalysis, h4: TimeframeAnalysis, h1: TimeframeAnalysis) -> TradeScenario | None:
+def _build_scenario(
+    daily: TimeframeAnalysis,
+    h4: TimeframeAnalysis,
+    h1: TimeframeAnalysis,
+    checklist: ChecklistResult,
+) -> TradeScenario | None:
     bias = _allowed_bias_from_daily(daily.trend)
     if bias == "wait":
+        return None
+
+    # Require minimum alignment before proposing any scenario
+    if h4.trend != Trend.NEUTRAL and h4.trend != daily.trend:
+        return None
+    if h1.trend != Trend.NEUTRAL and h1.trend != daily.trend:
         return None
 
     if bias == "long":
@@ -206,10 +213,9 @@ def _build_scenario(daily: TimeframeAnalysis, h4: TimeframeAnalysis, h1: Timefra
         take_profit = round(h4.resistance, 1)
         condition = f"اگر قیمت به ${entry_low:,.0f} – ${entry_high:,.0f} رسید"
         reason = (
-            "روند روزانه صعودی است؛ ورود روی پولبک به حمایت/EMA منطقی است. "
-            "شورت خلاف روند بلندمدت — پرریسک."
+            "روند روزانه صعودی است و ۴H/۱H مخالف نیستند؛ "
+            "ورود روی پولبک منطقی است. شورت خلاف بلندمدت — پرریسک."
         )
-        counter = False
     else:
         entry_low = round(h4.ema20 * 0.999, 1)
         entry_high = round(max(h4.ema20, h4.resistance) * 1.001, 1)
@@ -217,19 +223,12 @@ def _build_scenario(daily: TimeframeAnalysis, h4: TimeframeAnalysis, h1: Timefra
         take_profit = round(h4.support, 1)
         condition = f"اگر قیمت به ${entry_low:,.0f} – ${entry_high:,.0f} رسید (پولبک)"
         reason = (
-            "روند روزانه نزولی است؛ ورود شورت روی پولبک به مقاومت/EMA منطقی است. "
-            "لانگ خلاف روند بلندمدت — پرریسک."
+            "روند روزانه نزولی است و ۴H/۱H مخالف نیستند؛ "
+            "ورود شورت روی پولبک منطقی است. لانگ خلاف بلندمدت — پرریسک."
         )
-        counter = False
 
-    confidence = int(np.mean([daily.score, h4.score, h1.score]))
-
-    # H1 must not strongly oppose
-    if bias == "long" and h1.trend == Trend.BEARISH:
-        confidence -= 15
-    if bias == "short" and h1.trend == Trend.BULLISH:
-        confidence -= 15
-
+    tf_confidence = int(np.mean([daily.score, h4.score, h1.score]))
+    confidence = int(round(tf_confidence * 0.6 + checklist.score * 0.4))
     confidence = max(0, min(100, confidence))
 
     return TradeScenario(
@@ -241,7 +240,7 @@ def _build_scenario(daily: TimeframeAnalysis, h4: TimeframeAnalysis, h1: Timefra
         condition=condition,
         reason=reason,
         confidence=confidence,
-        counter_trend=counter,
+        counter_trend=False,
     )
 
 
@@ -249,14 +248,54 @@ def _trend_fa(trend: Trend) -> str:
     return {"bullish": "صعودی", "bearish": "نزولی", "neutral": "خنثی"}[trend.value]
 
 
-def build_report(daily_df: pd.DataFrame, h4_df: pd.DataFrame, h1_df: pd.DataFrame, generated_at: str) -> MarketReport:
+def _determine_action(
+    daily: TimeframeAnalysis,
+    h4: TimeframeAnalysis,
+    scenario: TradeScenario | None,
+    checklist: ChecklistResult,
+) -> str:
+    if not scenario:
+        if daily.is_ranging or h4.is_ranging:
+            return "wait"
+        return "no_signal"
+
+    if (
+        scenario.confidence >= MIN_ENTRY_SCORE
+        and checklist.score >= MIN_ENTRY_SCORE
+        and checklist.passed >= 8
+        and not daily.is_ranging
+        and not h4.is_ranging
+    ):
+        return "full"
+
+    if scenario.confidence >= 55 or checklist.score >= 55:
+        return "watch"
+
+    if daily.is_ranging or h4.is_ranging:
+        return "wait"
+
+    return "no_signal"
+
+
+def build_report(
+    daily_df: pd.DataFrame,
+    h4_df: pd.DataFrame,
+    h1_df: pd.DataFrame,
+    generated_at: str,
+    derivatives: DerivativesSnapshot | None = None,
+) -> MarketReport:
+    if derivatives is None:
+        derivatives = fetch_derivatives()
+
     daily = analyze_timeframe(daily_df, "1d", "روزانه")
     h4 = analyze_timeframe(h4_df, "4h", "۴ ساعته", align_with=daily.trend)
     h1 = analyze_timeframe(h1_df, "1h", "۱ ساعته", align_with=daily.trend)
 
     allowed = _allowed_bias_from_daily(daily.trend)
-    scenario = _build_scenario(daily, h4, h1)
-    quality = int(np.mean([daily.score, h4.score, h1.score]))
+    checklist = run_checklist(daily, h4, h1, allowed, derivatives)
+    scenario = _build_scenario(daily, h4, h1, checklist)
+    quality = int(round(np.mean([daily.score, h4.score, h1.score]) * 0.5 + checklist.score * 0.5))
+    action = _determine_action(daily, h4, scenario, checklist)
 
     summary: list[str] = []
     summary.append(f"قیمت الان: ${h1.price:,.1f}")
@@ -271,18 +310,18 @@ def build_report(daily_df: pd.DataFrame, h4_df: pd.DataFrame, h1_df: pd.DataFram
         summary.append("جهت روزانه: خنثی — فعلاً صبر کن")
 
     summary.append(f"۴ ساعته: {_trend_fa(h4.trend)} | ۱ ساعته: {_trend_fa(h1.trend)}")
+    summary.append(f"چک‌لیست کیفیت: {checklist.passed}/{checklist.total} ({checklist.score}%)")
 
-    if scenario and scenario.confidence >= 70 and not daily.is_ranging:
-        action = "full"
+    if derivatives.fear_greed_value is not None:
+        summary.append(f"شاخص ترس/طمع: {derivatives.fear_greed_value} ({derivatives.fear_greed_label})")
+
+    if action == "full":
         summary.append("✅ شرایط مناسب برای سناریو ورود")
-    elif scenario and scenario.confidence >= 50:
-        action = "watch"
+    elif action == "watch":
         summary.append("👀 نظارت — هنوز ورود قطعی نیست")
-    elif daily.is_ranging or h4.is_ranging:
-        action = "wait"
-        summary.append("⏸ بازار در رنج — صبر تا شکست سطح")
+    elif action == "wait":
+        summary.append("⏸ بازار در رنج یا شرایط نامناسب — صبر")
     else:
-        action = "no_signal"
         summary.append("⏳ فعلاً سیگنال قوی نیست — صبر کن")
 
     return MarketReport(
@@ -291,6 +330,8 @@ def build_report(daily_df: pd.DataFrame, h4_df: pd.DataFrame, h1_df: pd.DataFram
         daily=daily,
         h4=h4,
         h1=h1,
+        derivatives=derivatives,
+        checklist=checklist,
         allowed_bias=allowed,
         scenario=scenario,
         summary_lines=summary,
