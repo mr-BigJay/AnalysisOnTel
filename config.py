@@ -45,3 +45,8 @@ PREDICTION_EVAL_HOURS = int(os.getenv("PREDICTION_EVAL_HOURS", "4"))
 
 # Minimum minutes between duplicate logs for same bias/action
 PREDICTION_LOG_COOLDOWN_MIN = int(os.getenv("PREDICTION_LOG_COOLDOWN_MIN", "60"))
+
+# RSI alert settings
+RSI_ALERT_TIMEFRAMES = ["15m", "1h", "4h"]
+RSI_OVERBOUGHT = float(os.getenv("RSI_OVERBOUGHT", "70"))
+RSI_OVERSOLD = float(os.getenv("RSI_OVERSOLD", "30"))

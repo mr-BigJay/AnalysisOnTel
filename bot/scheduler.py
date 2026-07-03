@@ -10,6 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from telegram import Bot
 
 from alerts.price_watcher import check_entry_zone
+from alerts.rsi_watcher import check_rsi_alerts
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TIMEFRAMES
 from report.engine import generate_candle_alert
 from tracking.evaluator import evaluate_pending
@@ -96,6 +97,19 @@ def _check_entry_zone() -> None:
         logger.exception("Entry zone check failed")
 
 
+def _check_rsi_alerts() -> None:
+    if not TELEGRAM_CHAT_IDS or not TELEGRAM_BOT_TOKEN:
+        return
+    try:
+        messages = check_rsi_alerts()
+        for text in messages:
+            asyncio.run(_send_alerts(text))
+        if messages:
+            logger.info("RSI alerts sent: %s", len(messages))
+    except Exception:
+        logger.exception("RSI alert check failed")
+
+
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
 
@@ -136,6 +150,14 @@ def start_scheduler() -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    scheduler.add_job(
+        _check_rsi_alerts,
+        "interval",
+        minutes=2,
+        id="rsi_alerts",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("Candle-close scheduler started for: %s", list(TIMEFRAMES.keys()))
+    logger.info("Scheduler started — candles: %s, RSI: %s", list(TIMEFRAMES.keys()), "15m/1h/4h")
     return scheduler
