@@ -53,3 +53,16 @@ Kraken Public API — BTC/USD
 ```bash
 python3 chart_btc.py
 ```
+
+## استقرار روی Ubuntu 24.04 (سرور)
+
+این ربات از **Telegram Polling** استفاده می‌کند — فقط اتصال **خروجی** به تلگرام دارد.
+**هیچ پورتی (۸۰، ۴۴۳، ۸۰۸۰، …) باز نمی‌کند.**
+
+```bash
+# روی سرور — با root یا sudo
+sudo bash deploy/install.sh
+sudo nano /etc/analysisontel.env   # توکن و Chat ID
+sudo systemctl enable --now analysisontel
+sudo journalctl -u analysisontel -f
+```
