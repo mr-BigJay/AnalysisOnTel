@@ -23,3 +23,16 @@ def macd_histogram(series: pd.Series) -> pd.Series:
     macd_line = fast - slow
     signal = ema(macd_line, 9)
     return macd_line - signal
+
+
+def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Average True Range."""
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
+    prev_close = close.shift(1)
+    tr = pd.concat(
+        [high - low, (high - prev_close).abs(), (low - prev_close).abs()],
+        axis=1,
+    ).max(axis=1)
+    return tr.rolling(period).mean()

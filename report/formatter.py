@@ -117,17 +117,21 @@ def _fmt_scenario(scenario: TradeScenario) -> str:
     return "\n".join(lines)
 
 
-def format_report(report: MarketReport) -> str:
+def format_report(report: MarketReport, diff_block: str | None = None) -> str:
     parts = [
         "📊 <b>گزارش لحظه‌ای BTC</b>",
         f"🕐 {_ltr(report.generated_at)}",
+    ]
+    if diff_block:
+        parts.append(diff_block)
+    parts.extend([
         _fmt_summary(report),
         _fmt_tf_block("روزانه", report.daily),
         _fmt_tf_block("۴ ساعته", report.h4),
         _fmt_tf_block("۱ ساعته", report.h1),
         _fmt_derivatives(report),
         _fmt_checklist(report),
-    ]
+    ])
 
     if report.scenario and report.action in ("full", "watch"):
         parts.append(_fmt_scenario(report.scenario))

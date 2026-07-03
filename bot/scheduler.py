@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from telegram import Bot
 
+from alerts.price_watcher import check_entry_zone
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TIMEFRAMES
 from report.engine import generate_candle_alert
 from tracking.evaluator import evaluate_pending
@@ -43,6 +44,8 @@ def _check_and_alert(timeframe: str) -> None:
         _last_candle[timeframe] = latest
 
         text = generate_candle_alert(timeframe)
+        if not text:
+            return
         asyncio.run(_send_alerts(text))
         logger.info("Candle alert sent for %s at %s", timeframe, datetime.now(timezone.utc))
     except Exception:
@@ -80,6 +83,19 @@ def _run_weekly_backtest() -> None:
         logger.exception("Weekly backtest failed")
 
 
+def _check_entry_zone() -> None:
+    if not TELEGRAM_CHAT_IDS or not TELEGRAM_BOT_TOKEN:
+        return
+    try:
+        text = check_entry_zone()
+        if not text:
+            return
+        asyncio.run(_send_alerts(text))
+        logger.info("Entry zone alert sent at %s", datetime.now(timezone.utc))
+    except Exception:
+        logger.exception("Entry zone check failed")
+
+
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
 
@@ -109,6 +125,14 @@ def start_scheduler() -> BackgroundScheduler:
         hour=6,
         minute=0,
         id="weekly_backtest",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _check_entry_zone,
+        "interval",
+        minutes=2,
+        id="entry_zone",
         replace_existing=True,
     )
 

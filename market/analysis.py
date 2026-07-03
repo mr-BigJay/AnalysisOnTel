@@ -11,7 +11,7 @@ import pandas as pd
 from market.checklist import ChecklistResult, run_checklist
 from market.derivatives import DerivativesSnapshot, fetch_derivatives
 from market.events import get_event_risk
-from market.indicators import ema, macd_histogram, rsi
+from market.indicators import atr, ema, macd_histogram, rsi
 from market.levels import find_key_levels, nearest_support_resistance
 from market.types import Bias, TimeframeAnalysis, Trend
 from tracking.tuning import (
@@ -202,6 +202,7 @@ def _build_scenario(
     h4: TimeframeAnalysis,
     h1: TimeframeAnalysis,
     checklist: ChecklistResult,
+    h4_atr: float,
 ) -> TradeScenario | None:
     bias = _allowed_bias_from_daily(daily.trend)
     if bias == "wait":
@@ -213,25 +214,35 @@ def _build_scenario(
     if h1.trend != Trend.NEUTRAL and h1.trend != daily.trend:
         return None
 
+    atr_val = max(h4_atr, h4.price * 0.002)
+
     if bias == "long":
         entry_low = round(min(h4.ema20, h4.support) * 0.999, 1)
         entry_high = round(h4.ema20 * 1.001, 1)
-        stop_loss = round(h4.support * 0.995, 1)
-        take_profit = round(h4.resistance, 1)
+        entry_mid = (entry_low + entry_high) / 2
+        stop_loss = round(max(h4.support * 0.995, entry_mid - 1.5 * atr_val), 1)
+        take_profit = round(
+            h4.resistance if h4.resistance > entry_mid else entry_mid + 2.5 * atr_val,
+            1,
+        )
         condition = f"اگر قیمت به ${entry_low:,.0f} – ${entry_high:,.0f} رسید"
         reason = (
             "روند روزانه صعودی است و ۴H/۱H مخالف نیستند؛ "
-            "ورود روی پولبک منطقی است. شورت خلاف بلندمدت — پرریسک."
+            "ورود روی پولبک منطقی است. SL/TP بر اساس ATR تنظیم شده."
         )
     else:
         entry_low = round(h4.ema20 * 0.999, 1)
         entry_high = round(max(h4.ema20, h4.resistance) * 1.001, 1)
-        stop_loss = round(h4.resistance * 1.005, 1)
-        take_profit = round(h4.support, 1)
+        entry_mid = (entry_low + entry_high) / 2
+        stop_loss = round(min(h4.resistance * 1.005, entry_mid + 1.5 * atr_val), 1)
+        take_profit = round(
+            h4.support if h4.support < entry_mid else entry_mid - 2.5 * atr_val,
+            1,
+        )
         condition = f"اگر قیمت به ${entry_low:,.0f} – ${entry_high:,.0f} رسید (پولبک)"
         reason = (
             "روند روزانه نزولی است و ۴H/۱H مخالف نیستند؛ "
-            "ورود شورت روی پولبک منطقی است. لانگ خلاف بلندمدت — پرریسک."
+            "ورود شورت روی پولبک منطقی است. SL/TP بر اساس ATR تنظیم شده."
         )
 
     tf_confidence = int(np.mean([daily.score, h4.score, h1.score]))
@@ -310,7 +321,8 @@ def build_report(
 
     allowed = _allowed_bias_from_daily(daily.trend)
     checklist = run_checklist(daily, h4, h1, allowed, derivatives)
-    scenario = _build_scenario(daily, h4, h1, checklist)
+    h4_atr = float(atr(h4_df).iloc[-1])
+    scenario = _build_scenario(daily, h4, h1, checklist, h4_atr)
     quality = int(round(np.mean([daily.score, h4.score, h1.score]) * 0.5 + checklist.score * 0.5))
     action = _determine_action(daily, h4, scenario, checklist)
     if event_risk and action == "full":
