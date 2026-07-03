@@ -8,10 +8,21 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from backtest.report import run_and_format
-from bot.keyboard import BTN_BACKTEST, BTN_HELP, BTN_REPORT, BTN_REVIEW, BTN_STATS, MENU_ACTIONS, MENU_KEYBOARD
+from bot.keyboard import (
+    BTN_BACKTEST,
+    BTN_HELP,
+    BTN_REPORT,
+    BTN_REVIEW,
+    BTN_STATS,
+    BTN_STATUS,
+    MENU_ACTIONS,
+    MENU_KEYBOARD,
+)
 from chart.generator import generate_chart
 from config import TELEGRAM_BOT_TOKEN
+from market.status import fetch_market_status
 from report.engine import generate_report_messages
+from report.status_formatter import format_status_report
 from tracking.review import format_review_report
 from tracking.stats import format_stats_report
 
@@ -32,6 +43,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "ربات تحلیل BTC — گزارش نهادی (روزانه + ۴H + ۱H)\n\n"
         "از <b>منوی پایین</b> یک گزینه را انتخاب کنید:\n\n"
         "📊 گزارش — تحلیل نهادی + SMC + چارت\n"
+        "📡 وضعیت — روند ۱۵دقیقه / ۱H / ۴H\n"
         "📈 آمار — Win Rate و خود-اصلاح\n"
         "📋 بازبینی — پیش‌بینی vs واقعیت\n"
         "📉 بکتست — تست تاریخی\n"
@@ -76,6 +88,17 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(f"❌ خطا در تولید گزارش: {exc}", reply_markup=MENU_KEYBOARD)
 
 
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("⏳ در حال دریافت وضعیت...", reply_markup=MENU_KEYBOARD)
+    try:
+        status = fetch_market_status()
+        text = format_status_report(status)
+        await _reply_with_menu(update, text, html=True)
+    except Exception as exc:
+        logger.exception("Status failed")
+        await update.message.reply_text(f"❌ خطا در وضعیت: {exc}", reply_markup=MENU_KEYBOARD)
+
+
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         text = format_stats_report()
@@ -112,6 +135,8 @@ async def menu_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     action = MENU_ACTIONS.get(text)
     if action == "report":
         await report_command(update, context)
+    elif action == "status":
+        await status_command(update, context)
     elif action == "stats":
         await stats_command(update, context)
     elif action == "review":
@@ -134,6 +159,8 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_command))
     app.add_handler(CommandHandler("gozaresh", report_command))
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("vaziat", status_command))
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("review", review_command))
     app.add_handler(CommandHandler("backtest", backtest_command))

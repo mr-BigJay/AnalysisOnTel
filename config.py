@@ -30,6 +30,13 @@ TIMEFRAMES = {
     "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 120},
 }
 
+# Extra timeframes for /status menu only (not scheduled alerts)
+STATUS_TIMEFRAMES = {
+    "15m": {"label": "۱۵ دقیقه", "kraken": 15, "candles": 96},
+    "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 60},
+    "4h": {"label": "۴ ساعته", "kraken": 240, "candles": 60},
+}
+
 # Minimum quality score (0-100) to recommend entry
 MIN_ENTRY_SCORE = 70
 
