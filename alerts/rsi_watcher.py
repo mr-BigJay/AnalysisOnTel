@@ -86,7 +86,7 @@ def _fmt_divergence_alert(tf: str, div) -> str:
 
 def check_rsi_alerts() -> list[str]:
     """
-    Scan 15m / 1h / 4h for RSI extremes and divergences.
+    Scan 5m / 15m / 1h / 4h for RSI extremes and divergences.
     Returns Telegram HTML messages for new signals only.
     """
     state = _load_state()

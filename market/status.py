@@ -1,4 +1,4 @@
-"""Quick multi-timeframe trend status (15m / 1h / 4h)."""
+"""Quick multi-timeframe trend status (5m / 15m / 1h / 4h)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class MarketStatus:
 
 
 def fetch_market_status() -> MarketStatus:
-    """Fetch 15m, 1h, 4h trends for the status menu."""
+    """Fetch 5m, 15m, 1h, 4h trends for the status menu."""
     from config import STATUS_TIMEFRAMES
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -44,7 +44,13 @@ def fetch_market_status() -> MarketStatus:
         m15_df, "15m", STATUS_TIMEFRAMES["15m"]["label"], align_with=h1.trend
     )
 
+    m5_df = fetch_ohlcv("5m")
+    m5 = analyze_timeframe(
+        m5_df, "5m", STATUS_TIMEFRAMES["5m"]["label"], align_with=m15.trend
+    )
+
     timeframes = [
+        TimeframeStatus("5m", STATUS_TIMEFRAMES["5m"]["label"], m5.trend, m5.price),
         TimeframeStatus("15m", STATUS_TIMEFRAMES["15m"]["label"], m15.trend, m15.price),
         TimeframeStatus("1h", STATUS_TIMEFRAMES["1h"]["label"], h1.trend, h1.price),
         TimeframeStatus("4h", STATUS_TIMEFRAMES["4h"]["label"], h4.trend, h4.price),

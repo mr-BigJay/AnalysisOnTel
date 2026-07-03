@@ -31,7 +31,7 @@ def format_status_report(status: MarketStatus) -> str:
             *tf_lines,
             "",
             divider(),
-            bullet("روزانه جهت اصلی است — ۱۵دقیقه فقط نمای سریع"),
+            bullet("۵دقیقه/۱۵دقیقه فقط نمای سریع — گزارش اصلی: روزانه + ۴H + ۱H"),
         ]
     )
 

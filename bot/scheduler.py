@@ -159,5 +159,5 @@ def start_scheduler() -> BackgroundScheduler:
     )
 
     scheduler.start()
-    logger.info("Scheduler started — candles: %s, RSI: %s", list(TIMEFRAMES.keys()), "15m/1h/4h")
+    logger.info("Scheduler started — candles: %s, RSI: %s", list(TIMEFRAMES.keys()), "5m/15m/1h/4h")
     return scheduler

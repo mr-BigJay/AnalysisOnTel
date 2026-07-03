@@ -30,8 +30,9 @@ TIMEFRAMES = {
     "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 120},
 }
 
-# Extra timeframes for /status menu only (not scheduled alerts)
+# Scalping timeframes: status menu + RSI alerts (not full report)
 STATUS_TIMEFRAMES = {
+    "5m": {"label": "۵ دقیقه", "kraken": 5, "candles": 120},
     "15m": {"label": "۱۵ دقیقه", "kraken": 15, "candles": 96},
     "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 60},
     "4h": {"label": "۴ ساعته", "kraken": 240, "candles": 60},
@@ -47,6 +48,6 @@ PREDICTION_EVAL_HOURS = int(os.getenv("PREDICTION_EVAL_HOURS", "4"))
 PREDICTION_LOG_COOLDOWN_MIN = int(os.getenv("PREDICTION_LOG_COOLDOWN_MIN", "60"))
 
 # RSI alert settings
-RSI_ALERT_TIMEFRAMES = ["15m", "1h", "4h"]
+RSI_ALERT_TIMEFRAMES = ["5m", "15m", "1h", "4h"]
 RSI_OVERBOUGHT = float(os.getenv("RSI_OVERBOUGHT", "70"))
 RSI_OVERSOLD = float(os.getenv("RSI_OVERSOLD", "30"))
