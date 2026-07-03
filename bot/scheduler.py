@@ -68,6 +68,18 @@ def _run_outcome_evaluation() -> None:
         logger.exception("Outcome evaluation failed")
 
 
+def _run_weekly_backtest() -> None:
+    try:
+        from backtest.report import run_and_format
+
+        text = run_and_format()
+        if TELEGRAM_CHAT_IDS and TELEGRAM_BOT_TOKEN:
+            asyncio.run(_send_alerts("📅 <b>بکتست هفتگی</b>\n\n" + text))
+        logger.info("Weekly backtest completed")
+    except Exception:
+        logger.exception("Weekly backtest failed")
+
+
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
 
@@ -87,6 +99,16 @@ def start_scheduler() -> BackgroundScheduler:
         "interval",
         minutes=15,
         id="outcome_eval",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _run_weekly_backtest,
+        "cron",
+        day_of_week="sun",
+        hour=6,
+        minute=0,
+        id="weekly_backtest",
         replace_existing=True,
     )
 

@@ -10,12 +10,13 @@ from config import KRAKEN_PAIR, TIMEFRAMES
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 
 
-def fetch_ohlcv(timeframe: str) -> pd.DataFrame:
+def fetch_ohlcv(timeframe: str, candles: int | None = None) -> pd.DataFrame:
     """Return OHLCV DataFrame indexed by UTC datetime."""
     if timeframe not in TIMEFRAMES:
         raise ValueError(f"Unknown timeframe: {timeframe}")
 
     meta = TIMEFRAMES[timeframe]
+    limit = candles or meta["candles"]
     params = {"pair": KRAKEN_PAIR, "interval": meta["kraken"]}
     response = requests.get(KRAKEN_OHLC_URL, params=params, timeout=30)
     response.raise_for_status()
@@ -24,7 +25,7 @@ def fetch_ohlcv(timeframe: str) -> pd.DataFrame:
         raise RuntimeError(f"Kraken API error: {payload['error']}")
 
     pair_key = next(iter(payload["result"]))
-    rows = payload["result"][pair_key][-meta["candles"] :]
+    rows = payload["result"][pair_key][-limit:]
 
     df = pd.DataFrame(
         rows,

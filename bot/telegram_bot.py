@@ -8,6 +8,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import TELEGRAM_BOT_TOKEN
+from backtest.report import format_backtest_report, run_and_format
+from chart.generator import generate_chart
 from report.engine import generate_report
 from tracking.review import format_review_report
 from tracking.stats import format_stats_report
@@ -39,6 +41,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "یا بنویسید: گزارش\n"
         "/stats — آمار عملکرد و Win Rate\n"
         "/review — بازبینی آخرین پیش‌بینی\n"
+        "/backtest — بکتست تاریخی استراتژی\n"
         "/help — راهنما\n\n"
         "قانون: جهت روزانه تعیین‌کننده است.\n"
         "خلاف روند بلندمدت = پرریسک ⛔"
@@ -55,11 +58,21 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text("⏳ در حال دریافت داده و تحلیل...")
 
     try:
-        _, text = generate_report(source="telegram_report")
-        # Telegram message limit is 4096 chars
+        report, text = generate_report(source="telegram_report")
         if len(text) > 4000:
             text = text[:3990] + "\n..."
         await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+
+        try:
+            chart_path = generate_chart("4h")
+            with open(chart_path, "rb") as photo:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption="📈 چارت BTC — ۴H",
+                )
+        except Exception:
+            logger.exception("Chart generation failed")
     except Exception as exc:
         logger.exception("Report generation failed")
         await update.message.reply_text(f"❌ خطا در تولید گزارش: {exc}")
@@ -83,6 +96,16 @@ async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(f"❌ خطا در بازبینی: {exc}")
 
 
+async def backtest_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("⏳ بکتست در حال اجرا (ممکن است ۳۰–۶۰ ثانیه طول بکشد)...")
+    try:
+        text = run_and_format()
+        await update.message.reply_html(text)
+    except Exception as exc:
+        logger.exception("Backtest failed")
+        await update.message.reply_text(f"❌ خطا در بکتست: {exc}")
+
+
 def build_application() -> Application:
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError(
@@ -97,6 +120,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("gozaresh", report_command))
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("review", review_command))
+    app.add_handler(CommandHandler("backtest", backtest_command))
     app.add_handler(MessageHandler(filters.TEXT & gozaresh_text, report_command))
     return app
 

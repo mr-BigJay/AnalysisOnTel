@@ -10,6 +10,7 @@ import pandas as pd
 
 from market.checklist import ChecklistResult, run_checklist
 from market.derivatives import DerivativesSnapshot, fetch_derivatives
+from market.events import get_event_risk
 from market.indicators import ema, macd_histogram, rsi
 from market.levels import find_key_levels, nearest_support_resistance
 from market.types import Bias, TimeframeAnalysis, Trend
@@ -46,6 +47,8 @@ class MarketReport:
     summary_lines: list[str]
     quality_score: int
     action: str  # full | watch | wait | no_signal
+    event_risk: bool = False
+    event_risk_note: str | None = None
 
 
 def _detect_trend(close: pd.Series, ema20: pd.Series, ema50: pd.Series) -> Trend:
@@ -291,9 +294,15 @@ def build_report(
     h1_df: pd.DataFrame,
     generated_at: str,
     derivatives: DerivativesSnapshot | None = None,
+    check_events: bool = True,
 ) -> MarketReport:
     if derivatives is None:
         derivatives = fetch_derivatives()
+
+    event_risk = False
+    event_note: str | None = None
+    if check_events:
+        event_risk, event_note = get_event_risk()
 
     daily = analyze_timeframe(daily_df, "1d", "روزانه")
     h4 = analyze_timeframe(h4_df, "4h", "۴ ساعته", align_with=daily.trend)
@@ -304,6 +313,8 @@ def build_report(
     scenario = _build_scenario(daily, h4, h1, checklist)
     quality = int(round(np.mean([daily.score, h4.score, h1.score]) * 0.5 + checklist.score * 0.5))
     action = _determine_action(daily, h4, scenario, checklist)
+    if event_risk and action == "full":
+        action = "watch"
 
     summary: list[str] = []
     summary.append(f"قیمت الان: ${h1.price:,.1f}")
@@ -322,6 +333,10 @@ def build_report(
 
     if derivatives.fear_greed_value is not None:
         summary.append(f"شاخص ترس/طمع: {derivatives.fear_greed_value} ({derivatives.fear_greed_label})")
+
+    if event_risk and event_note:
+        summary.append(f"⚠️ رویداد پرریسک نزدیک: {event_note}")
+        summary.append("⛔ ورود قطعی غیرفعال تا پایان رویداد")
 
     if action == "full":
         summary.append("✅ شرایط مناسب برای سناریو ورود")
@@ -345,4 +360,6 @@ def build_report(
         summary_lines=summary,
         quality_score=quality,
         action=action,
+        event_risk=event_risk,
+        event_risk_note=event_note,
     )
