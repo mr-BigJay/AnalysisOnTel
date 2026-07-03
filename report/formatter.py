@@ -1,4 +1,4 @@
-"""Persian report formatting for Telegram."""
+"""Persian report formatting for Telegram — clean RTL-friendly layout."""
 
 from __future__ import annotations
 
@@ -10,79 +10,123 @@ def _trend_fa(trend: Trend) -> str:
     return {"bullish": "صعودی", "bearish": "نزولی", "neutral": "خنثی"}[trend.value]
 
 
-def _fmt_tf_block(report: MarketReport, tf_key: str) -> str:
-    tf = {"1d": report.daily, "4h": report.h4, "1h": report.h1}[tf_key]
+def _ltr(text: str) -> str:
+    """Wrap LTR content to reduce RTL/LTR mixing issues in Telegram."""
+    return f"\u200e{text}"
+
+
+def _section(title: str) -> str:
+    return f"\n<b>{title}</b>"
+
+
+def _line(label: str, value: str) -> str:
+    return f"• {label}: {_ltr(value)}"
+
+
+def _fmt_summary(report: MarketReport) -> str:
     lines = [
-        f"━━ {tf.label} ━━",
-        f"روند: {_trend_fa(tf.trend)} | قیمت: ${tf.price:,.1f}",
-        f"RSI: {tf.rsi} | MACD: {tf.macd_hist:+.2f}",
-        f"حمایت: ${tf.support:,.0f} | مقاومت: ${tf.resistance:,.0f}",
-        f"حجم/میانگین: {tf.volume_ratio}x | امتیاز: {tf.score}/100",
+        _section("خلاصه سریع"),
+        _line("قیمت الان", f"${report.h1.price:,.1f}"),
+        _line("روزانه", _trend_fa(report.daily.trend)),
+        _line("۴ ساعته", _trend_fa(report.h4.trend)),
+        _line("۱ ساعته", _trend_fa(report.h1.trend)),
+        _line("امتیاز کیفیت", f"{report.quality_score}/100"),
+    ]
+
+    if report.daily.trend.value == "bullish":
+        lines.append("• جهت مجاز: لانگ یا صبر")
+        lines.append("• ⛔ شورت = خلاف روند بلندمدت")
+    elif report.daily.trend.value == "bearish":
+        lines.append("• جهت مجاز: شورت یا صبر")
+        lines.append("• ⛔ لانگ = خلاف روند بلندمدت")
+    else:
+        lines.append("• جهت روزانه: نامشخص — صبر کن")
+
+    if report.event_risk and report.event_risk_note:
+        lines.append(f"• ⚠️ رویداد پرریسک: {_ltr(report.event_risk_note)}")
+
+    action_fa = {
+        "full": "✅ شرایط ورود مناسب",
+        "watch": "👀 فقط نظارت",
+        "wait": "⏸ صبر (رنج/نامناسب)",
+        "no_signal": "⏳ سیگنال قوی نیست",
+    }
+    lines.append(f"• وضعیت: {action_fa.get(report.action, report.action)}")
+    return "\n".join(lines)
+
+
+def _fmt_tf_block(label: str, tf) -> str:
+    lines = [
+        _section(label),
+        _line("روند", _trend_fa(tf.trend)),
+        _line("قیمت", f"${tf.price:,.1f}"),
+        _line("RSI", str(tf.rsi)),
+        _line("MACD", f"{tf.macd_hist:+.1f}"),
+        _line("حمایت", f"${tf.support:,.0f}"),
+        _line("مقاومت", f"${tf.resistance:,.0f}"),
+        _line("حجم", f"{tf.volume_ratio}x میانگین"),
+        _line("امتیاز", f"{tf.score}/100"),
     ]
     if tf.is_ranging:
-        lines.append("⚠️ بازار در رنج")
+        lines.append("• ⚠️ بازار در رنج")
     return "\n".join(lines)
 
 
 def _fmt_derivatives(report: MarketReport) -> str:
     d = report.derivatives
-    lines = ["━━ مشتقات و احساسات ━━"]
+    lines = [_section("مشتقات و احساسات")]
     if d.funding_rate is not None:
-        lines.append(f"Funding Rate: {d.funding_rate * 100:.4f}%")
-    else:
-        lines.append("Funding Rate: داده نیست")
+        lines.append(_line("نرخ فاندینگ", f"{d.funding_rate * 100:.4f}%"))
     if d.open_interest_usd is not None:
-        lines.append(f"Open Interest: ${d.open_interest_usd / 1e9:.2f}B")
+        lines.append(_line("اوپن اینترست", f"${d.open_interest_usd / 1e9:.2f}B"))
     if d.long_short_ratio is not None:
-        lines.append(f"Long/Short: {d.long_short_ratio:.2f}")
+        lines.append(_line("لانگ/شورت", f"{d.long_short_ratio:.2f}"))
     if d.fear_greed_value is not None:
-        lines.append(f"ترس/طمع: {d.fear_greed_value} — {d.fear_greed_label}")
+        lines.append(_line("ترس و طمع", f"{d.fear_greed_value} ({d.fear_greed_label})"))
     return "\n".join(lines)
 
 
 def _fmt_checklist(report: MarketReport) -> str:
-    lines = ["━━ چک‌لیست کیفیت ━━"]
-    for label, ok, note in report.checklist.items:
-        mark = "✅" if ok else "❌"
-        lines.append(f"{mark} {label} ({note})")
-    lines.append(f"نتیجه: {report.checklist.passed}/{report.checklist.total} — {report.checklist.score}%")
+    c = report.checklist
+    lines = [
+        _section("چک‌لیست کیفیت"),
+        _line("نتیجه", f"{c.passed}/{c.total} — {c.score}%"),
+    ]
+    failed = [(label, note) for label, ok, note in c.items if not ok]
+    if failed:
+        lines.append("• موارد ضعیف:")
+        for label, note in failed:
+            lines.append(f"  ❌ {label} — {_ltr(note)}")
+    else:
+        lines.append("• ✅ همه موارد تأیید شد")
     return "\n".join(lines)
 
 
 def _fmt_scenario(scenario: TradeScenario) -> str:
     side = "لانگ 🟢" if scenario.bias == "long" else "شورت 🔴"
-    return "\n".join(
-        [
-            f"📌 سناریو پیشنهادی ({side})",
-            scenario.condition,
-            f"→ {side} بگیر",
-            f"دلیل: {scenario.reason}",
-            f"حد ضرر: ${scenario.stop_loss:,.0f}",
-            f"هدف سود: ${scenario.take_profit:,.0f}",
-            f"اطمینان: {scenario.confidence}%",
-            f"باطل شدن: بسته شدن ۴H {'زیر' if scenario.bias == 'long' else 'بالای'} ${scenario.stop_loss:,.0f}",
-        ]
-    )
+    lines = [
+        _section(f"سناریو پیشنهادی — {side}"),
+        f"• شرط ورود:",
+        f"  {_ltr(scenario.condition)}",
+        _line("حد ضرر", f"${scenario.stop_loss:,.0f}"),
+        _line("هدف سود", f"${scenario.take_profit:,.0f}"),
+        _line("اطمینان", f"{scenario.confidence}%"),
+        f"• دلیل: {scenario.reason}",
+        f"• باطل شدن: بسته ۴H {'زیر' if scenario.bias == 'long' else 'بالای'} {_ltr(f'${scenario.stop_loss:,.0f}')}",
+    ]
+    return "\n".join(lines)
 
 
 def format_report(report: MarketReport) -> str:
     parts = [
-        "📊 <b>گزارش لحظه‌ای BTC</b> (نسخه پیشرفته)",
-        f"🕐 {report.generated_at}",
-        "",
-        *report.summary_lines,
-        "",
-        _fmt_tf_block(report, "1d"),
-        "",
-        _fmt_tf_block(report, "4h"),
-        "",
-        _fmt_tf_block(report, "1h"),
-        "",
+        "📊 <b>گزارش لحظه‌ای BTC</b>",
+        f"🕐 {_ltr(report.generated_at)}",
+        _fmt_summary(report),
+        _fmt_tf_block("روزانه", report.daily),
+        _fmt_tf_block("۴ ساعته", report.h4),
+        _fmt_tf_block("۱ ساعته", report.h1),
         _fmt_derivatives(report),
-        "",
         _fmt_checklist(report),
-        "",
-        "━━ جمع‌بندی ━━",
     ]
 
     if report.scenario and report.action in ("full", "watch"):
@@ -90,29 +134,29 @@ def format_report(report: MarketReport) -> str:
         if report.action == "watch":
             parts.append("\n⚠️ هنوز ورود قطعی نیست — فقط نظارت")
     else:
+        parts.append(_section("جمع‌بندی"))
         parts.append("⏳ فعلاً ورود توصیه نمی‌شود — صبر کن")
 
-    parts.append(f"\nامتیاز کیفیت کلی: <b>{report.quality_score}/100</b>")
-    parts.append("\n<i>AnalysisOnTel — Kraken + OKX + Fear&amp;Greed</i>")
-
+    parts.append(f"\n<i>AnalysisOnTel</i>")
     return "\n".join(parts)
 
 
 def format_candle_close_alert(report: MarketReport, timeframe_label: str) -> str:
-    """Shorter alert when a candle closes on a specific timeframe."""
     tf_map = {"روزانه": report.daily, "۴ ساعته": report.h4, "۱ ساعته": report.h1}
     tf = tf_map.get(timeframe_label, report.h1)
 
     lines = [
         f"🔔 <b>کندل {timeframe_label} بسته شد</b>",
-        f"🕐 {report.generated_at}",
-        f"روند {_trend_fa(tf.trend)} | قیمت: ${tf.price:,.1f}",
-        f"چک‌لیست: {report.checklist.passed}/{report.checklist.total}",
+        f"🕐 {_ltr(report.generated_at)}",
+        _line("روند", _trend_fa(tf.trend)),
+        _line("قیمت", f"${tf.price:,.1f}"),
+        _line("چک‌لیست", f"{report.checklist.passed}/{report.checklist.total}"),
         "",
     ]
     if report.scenario and report.action == "full":
         side = "لانگ" if report.scenario.bias == "long" else "شورت"
-        lines.append(f"✅ سناریو {side}: {report.scenario.condition}")
+        lines.append(f"✅ سناریو {side}")
+        lines.append(_ltr(report.scenario.condition))
     else:
         lines.append("⏳ فعلاً صبر — سیگنال قوی نیست")
 

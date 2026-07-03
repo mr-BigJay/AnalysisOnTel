@@ -7,9 +7,10 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-from config import TELEGRAM_BOT_TOKEN
-from backtest.report import format_backtest_report, run_and_format
+from backtest.report import run_and_format
+from bot.keyboard import BTN_BACKTEST, BTN_HELP, BTN_REPORT, BTN_REVIEW, BTN_STATS, MENU_ACTIONS, MENU_KEYBOARD
 from chart.generator import generate_chart
+from config import TELEGRAM_BOT_TOKEN
 from report.engine import generate_report
 from tracking.review import format_review_report
 from tracking.stats import format_stats_report
@@ -17,36 +18,28 @@ from tracking.stats import format_stats_report
 logger = logging.getLogger(__name__)
 
 
-class GozareshTextFilter(filters.MessageFilter):
-    """Match plain Persian 'گزارش' without using regex (PTB/Unicode safe)."""
-
-    __slots__ = ()
-
-    def filter(self, message):  # type: ignore[override]
-        if not message.text:
-            return False
-        return message.text.strip() == "گزارش"
-
-
-gozaresh_text = GozareshTextFilter()
+async def _reply_with_menu(update: Update, text: str, html: bool = False) -> None:
+    kwargs = {"reply_markup": MENU_KEYBOARD}
+    if html:
+        await update.message.reply_html(text, **kwargs)
+    else:
+        await update.message.reply_text(text, **kwargs)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "👋 <b>AnalysisOnTel</b>\n\n"
-        "ربات گزارش بازار BTC — روزانه + ۴H + ۱H\n\n"
-        "دستورات:\n"
-        "/report — گزارش کامل لحظه‌ای\n"
-        "/gozaresh — همان گزارش\n"
-        "یا بنویسید: گزارش\n"
-        "/stats — آمار عملکرد و Win Rate\n"
-        "/review — بازبینی آخرین پیش‌بینی\n"
-        "/backtest — بکتست تاریخی استراتژی\n"
-        "/help — راهنما\n\n"
-        "قانون: جهت روزانه تعیین‌کننده است.\n"
+        "ربات تحلیل BTC — روزانه + ۴H + ۱H\n\n"
+        "از <b>منوی پایین</b> یک گزینه را انتخاب کنید:\n\n"
+        "📊 گزارش — تحلیل لحظه‌ای + چارت\n"
+        "📈 آمار — Win Rate و خود-اصلاح\n"
+        "📋 بازبینی — پیش‌بینی vs واقعیت\n"
+        "📉 بکتست — تست تاریخی\n"
+        "❓ راهنما — همین پیام\n\n"
+        "قانون: روزانه جهت اصلی است.\n"
         "خلاف روند بلندمدت = پرریسک ⛔"
     )
-    await update.message.reply_html(text)
+    await update.message.reply_html(text, reply_markup=MENU_KEYBOARD)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -55,13 +48,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
-    await update.message.reply_text("⏳ در حال دریافت داده و تحلیل...")
+    await update.message.reply_text("⏳ در حال دریافت داده و تحلیل...", reply_markup=MENU_KEYBOARD)
 
     try:
-        report, text = generate_report(source="telegram_report")
+        _, text = generate_report(source="telegram_report")
         if len(text) > 4000:
             text = text[:3990] + "\n..."
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        await context.bot.send_message(
+            chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MENU_KEYBOARD
+        )
 
         try:
             chart_path = generate_chart("4h")
@@ -70,40 +65,59 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     chat_id=chat_id,
                     photo=photo,
                     caption="📈 چارت BTC — ۴H",
+                    reply_markup=MENU_KEYBOARD,
                 )
         except Exception:
             logger.exception("Chart generation failed")
     except Exception as exc:
         logger.exception("Report generation failed")
-        await update.message.reply_text(f"❌ خطا در تولید گزارش: {exc}")
+        await update.message.reply_text(f"❌ خطا در تولید گزارش: {exc}", reply_markup=MENU_KEYBOARD)
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         text = format_stats_report()
-        await update.message.reply_html(text)
+        await _reply_with_menu(update, text, html=True)
     except Exception as exc:
         logger.exception("Stats failed")
-        await update.message.reply_text(f"❌ خطا در آمار: {exc}")
+        await update.message.reply_text(f"❌ خطا در آمار: {exc}", reply_markup=MENU_KEYBOARD)
 
 
 async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         text = format_review_report()
-        await update.message.reply_html(text)
+        await _reply_with_menu(update, text, html=True)
     except Exception as exc:
         logger.exception("Review failed")
-        await update.message.reply_text(f"❌ خطا در بازبینی: {exc}")
+        await update.message.reply_text(f"❌ خطا در بازبینی: {exc}", reply_markup=MENU_KEYBOARD)
 
 
 async def backtest_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("⏳ بکتست در حال اجرا (ممکن است ۳۰–۶۰ ثانیه طول بکشد)...")
+    await update.message.reply_text(
+        "⏳ بکتست در حال اجرا (۳۰–۶۰ ثانیه)...", reply_markup=MENU_KEYBOARD
+    )
     try:
         text = run_and_format()
-        await update.message.reply_html(text)
+        await _reply_with_menu(update, text, html=True)
     except Exception as exc:
         logger.exception("Backtest failed")
-        await update.message.reply_text(f"❌ خطا در بکتست: {exc}")
+        await update.message.reply_text(f"❌ خطا در بکتست: {exc}", reply_markup=MENU_KEYBOARD)
+
+
+async def menu_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Route reply-keyboard menu button presses."""
+    text = (update.message.text or "").strip()
+    action = MENU_ACTIONS.get(text)
+    if action == "report":
+        await report_command(update, context)
+    elif action == "stats":
+        await stats_command(update, context)
+    elif action == "review":
+        await review_command(update, context)
+    elif action == "backtest":
+        await backtest_command(update, context)
+    elif action == "help":
+        await help_command(update, context)
 
 
 def build_application() -> Application:
@@ -121,7 +135,10 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("review", review_command))
     app.add_handler(CommandHandler("backtest", backtest_command))
-    app.add_handler(MessageHandler(filters.TEXT & gozaresh_text, report_command))
+    # Menu buttons (must be after commands; exclude commands starting with /)
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, menu_text_handler),
+    )
     return app
 
 

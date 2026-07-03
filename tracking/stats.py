@@ -24,23 +24,26 @@ def _win_rate(counts: dict[str, int]) -> tuple[int, int, float | None]:
     return wins, losses, (wins / decided) * 100
 
 
+def _ltr(text: str) -> str:
+    return f"\u200e{text}"
+
+
 def _format_period(title: str, days: int | None) -> list[str]:
     counts = count_by_outcome(days)
     wins, losses, rate = _win_rate(counts)
     total = sum(counts.values())
     lines = [f"<b>{title}</b>"]
     if total == 0:
-        lines.append("هنوز داده کافی نیست")
+        lines.append("• هنوز داده کافی نیست")
         return lines
-    lines.append(f"کل ارزیابی‌شده: {total}")
-    lines.append(f"برد: {wins} | باخت: {losses}")
+    lines.append(f"• کل: {_ltr(str(total))}")
+    lines.append(f"• برد: {_ltr(str(wins))}")
+    lines.append(f"• باخت: {_ltr(str(losses))}")
     if rate is not None:
-        lines.append(f"Win Rate: <b>{rate:.1f}%</b>")
-    else:
-        lines.append("Win Rate: — (هنوز برد/باخت قطعی نیست)")
+        lines.append(f"• Win Rate: <b>{_ltr(f'{rate:.1f}%')}</b>")
     for key in ("inconclusive", "no_entry"):
         if counts.get(key):
-            lines.append(f"{OUTCOME_FA[key]}: {counts[key]}")
+            lines.append(f"• {OUTCOME_FA[key]}: {_ltr(str(counts[key]))}")
     return lines
 
 
@@ -55,9 +58,9 @@ def format_stats_report() -> str:
         "",
         *_format_period("کل دوره", None),
         "",
-        f"پیش‌بینی‌های در انتظار ارزیابی: <b>{pending}</b>",
+        f"• در انتظار ارزیابی: <b>{_ltr(str(pending))}</b>",
         "",
-        "━━ آخرین پیش‌بینی‌ها ━━",
+        "<b>آخرین پیش‌بینی‌ها</b>",
     ]
 
     recent = fetch_recent(5)
@@ -67,10 +70,10 @@ def format_stats_report() -> str:
         for row in recent:
             outcome = OUTCOME_FA.get(row.outcome, row.outcome)
             parts.append(
-                f"#{row.id} {row.created_at} | {row.bias} | {outcome}"
+                f"• #{_ltr(str(row.id))} — {row.bias} — {outcome}"
             )
             if row.outcome_note:
-                parts.append(f"↳ {row.outcome_note}")
+                parts.append(f"  ↳ {row.outcome_note}")
 
     parts.append("")
     parts.append(format_tuning_status())
