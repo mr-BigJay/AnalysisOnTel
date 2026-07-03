@@ -11,7 +11,7 @@ from backtest.report import run_and_format
 from bot.keyboard import BTN_BACKTEST, BTN_HELP, BTN_REPORT, BTN_REVIEW, BTN_STATS, MENU_ACTIONS, MENU_KEYBOARD
 from chart.generator import generate_chart
 from config import TELEGRAM_BOT_TOKEN
-from report.engine import generate_report
+from report.engine import generate_report_messages
 from tracking.review import format_review_report
 from tracking.stats import format_stats_report
 
@@ -29,9 +29,9 @@ async def _reply_with_menu(update: Update, text: str, html: bool = False) -> Non
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "👋 <b>AnalysisOnTel</b>\n\n"
-        "ربات تحلیل BTC — روزانه + ۴H + ۱H\n\n"
+        "ربات تحلیل BTC — گزارش نهادی (روزانه + ۴H + ۱H)\n\n"
         "از <b>منوی پایین</b> یک گزینه را انتخاب کنید:\n\n"
-        "📊 گزارش — تحلیل لحظه‌ای + چارت\n"
+        "📊 گزارش — تحلیل نهادی + SMC + چارت\n"
         "📈 آمار — Win Rate و خود-اصلاح\n"
         "📋 بازبینی — پیش‌بینی vs واقعیت\n"
         "📉 بکتست — تست تاریخی\n"
@@ -51,12 +51,14 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text("⏳ در حال دریافت داده و تحلیل...", reply_markup=MENU_KEYBOARD)
 
     try:
-        _, text = generate_report(source="telegram_report")
-        if len(text) > 4000:
-            text = text[:3990] + "\n..."
-        await context.bot.send_message(
-            chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MENU_KEYBOARD
-        )
+        _, messages = generate_report_messages(source="telegram_report")
+        for i, text in enumerate(messages):
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=MENU_KEYBOARD if i == len(messages) - 1 else None,
+            )
 
         try:
             chart_path = generate_chart("4h")

@@ -16,14 +16,15 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "report":
-        from report.engine import generate_report
+        from report.engine import generate_report_messages
 
-        _, text = generate_report()
-        # Strip HTML for terminal
+        _, messages = generate_report_messages()
         import re
 
-        plain = re.sub(r"<[^>]+>", "", text)
-        print(plain)
+        for msg in messages:
+            plain = re.sub(r"<[^>]+>", "", msg)
+            print(plain)
+            print("-" * 40)
         return
 
     if args.command == "stats":
