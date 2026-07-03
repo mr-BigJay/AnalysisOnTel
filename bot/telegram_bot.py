@@ -13,6 +13,20 @@ from report.engine import generate_report
 logger = logging.getLogger(__name__)
 
 
+class GozareshTextFilter(filters.MessageFilter):
+    """Match plain Persian 'گزارش' without using regex (PTB/Unicode safe)."""
+
+    __slots__ = ()
+
+    def filter(self, message):  # type: ignore[override]
+        if not message.text:
+            return False
+        return message.text.strip() == "گزارش"
+
+
+gozaresh_text = GozareshTextFilter()
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "👋 <b>AnalysisOnTel</b>\n\n"
@@ -59,7 +73,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_command))
     app.add_handler(CommandHandler("gozaresh", report_command))
-    app.add_handler(MessageHandler(filters.Regex(r"^گزارش$"), report_command))
+    app.add_handler(MessageHandler(filters.TEXT & gozaresh_text, report_command))
     return app
 
 
