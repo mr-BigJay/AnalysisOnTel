@@ -1,60 +1,34 @@
-"""AnalysisOnTel — entry point."""
+"""AnalysisOnTel — BTC notification bot."""
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AnalysisOnTel BTC market report bot")
+    parser = argparse.ArgumentParser(description="AnalysisOnTel BTC notification bot")
     parser.add_argument(
         "command",
-        choices=["report", "status", "stats", "review", "backtest", "bot", "bot-scheduled"],
-        help="report | status | stats | review | backtest | bot | bot-scheduled",
+        choices=["scan", "status", "bot", "bot-scheduled"],
+        help="scan | status | bot | bot-scheduled",
     )
     args = parser.parse_args()
 
-    if args.command == "report":
-        from report.engine import generate_report_messages
+    if args.command == "scan":
+        from notifications.engine import run_btc_notifications
 
-        _, messages = generate_report_messages()
-        import re
-
-        for msg in messages:
-            plain = re.sub(r"<[^>]+>", "", msg)
-            print(plain)
+        for msg in run_btc_notifications():
+            print(re.sub(r"<[^>]+>", "", msg))
             print("-" * 40)
         return
 
     if args.command == "status":
+        from bot.status_format import format_status_report
         from market.status import fetch_market_status
-        from report.status_formatter import format_status_report
-        import re
 
-        status = fetch_market_status()
-        print(re.sub(r"<[^>]+>", "", format_status_report(status)))
-        return
-
-    if args.command == "stats":
-        from tracking.stats import format_stats_report
-        import re
-
-        print(re.sub(r"<[^>]+>", "", format_stats_report()))
-        return
-
-    if args.command == "review":
-        from tracking.review import format_review_report
-        import re
-
-        print(re.sub(r"<[^>]+>", "", format_review_report()))
-        return
-
-    if args.command == "backtest":
-        from backtest.report import run_and_format
-        import re
-
-        print(re.sub(r"<[^>]+>", "", run_and_format()))
+        print(re.sub(r"<[^>]+>", "", format_status_report(fetch_market_status())))
         return
 
     if args.command in ("bot", "bot-scheduled"):

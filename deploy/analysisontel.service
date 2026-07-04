@@ -1,5 +1,5 @@
 [Unit]
-Description=AnalysisOnTel Telegram BTC Report Bot
+Description=AnalysisOnTel BTC Notification Bot
 After=network-online.target
 Wants=network-online.target
 

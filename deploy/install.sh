@@ -7,7 +7,7 @@ set -euo pipefail
 APP_DIR="/opt/analysisontel"
 APP_USER="analysisontel"
 REPO_URL="${REPO_URL:-https://github.com/mr-BigJay/AnalysisOnTel.git}"
-BRANCH="${BRANCH:-cursor/telegram-report-bot-8654}"
+BRANCH="${BRANCH:-cursor/btc-notif-bot-8654}"
 
 echo "==> Installing system packages..."
 apt-get update -qq

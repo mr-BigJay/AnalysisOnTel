@@ -1,97 +1,94 @@
-# AnalysisOnTel
+# AnalysisOnTel — BTC Notification Bot
 
-ربات گزارش بازار BTC برای تلگرام — تحلیل چندتایم‌فریمی (روزانه + ۴H + ۱H).
+Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or multi-coin scan.
 
-## ویژگی‌ها (نسخه پیشرفته)
+## Alerts (automatic in `bot-scheduled` mode)
 
-- گزارش فارسی ساده و واضح با دستور `/report` یا `/gozaresh`
-- جهت روزانه تعیین‌کننده — خلاف روند بلندمدت = پرریسک
-- سناریو ورود شرطی: «اگر قیمت به X رسید → لانگ/شورت»
-- **چک‌لیست ۱۰ مرحله‌ای کیفیت** قبل از هر سیگنال
-- **Funding Rate + Open Interest + Long/Short** از OKX
-- **شاخص ترس و طمع** از alternative.me
-- امتیاز کیفیت ۰–۱۰۰ (ورود فقط ≥ ۷۰)
-- هشدار خودکار با بسته شدن کندل (اختیاری)
+### Level 1
+- RSI oversold / overbought (cross, closed candle) — 5m, 15m, 1h, 4h
+- RSI divergence — 5m, 15m, 1h, 4h
+- Key level break — 1h, 4h
 
-## نصب
+### Level 2
+- Liquidity Grab — 15m, 1h
+- MSS (Market Structure Shift) — 15m, 1h
+- Breakout + Retest entry zone hit — 1h, 4h
+
+### Level 3
+- Macro events (USD/EUR high-impact)
+- Extreme Fear & Greed
+- Extreme funding rate
+- Volume spike — 1h, 4h
+
+### Manual (menu)
+- **📡 وضعیت** — trend on 5m / 15m / 1h / 4h
+
+## Commands
 
 ```bash
-pip install -r requirements.txt
+python main.py bot              # Telegram only
+python main.py bot-scheduled    # Telegram + auto alerts
+python main.py status           # terminal status
+python main.py scan             # one notification scan
 ```
 
-## تنظیمات
+Telegram: `/start` `/status` `/vaziat` — menu: **وضعیت** | **راهنما**
+
+## Server install / update
 
 ```bash
-export TELEGRAM_BOT_TOKEN="your-bot-token-from-BotFather"
-export TELEGRAM_CHAT_IDS="123456789"   # اختیاری — برای هشدار خودکار
+cd /opt/analysisontel
+sudo git fetch origin
+sudo git checkout cursor/btc-notif-bot-8654
+sudo git pull origin cursor/btc-notif-bot-8654
+sudo ./venv/bin/pip install -r requirements.txt
+sudo chown -R analysisontel:analysisontel /opt/analysisontel/data
+sudo systemctl restart analysisontel
 ```
 
-## اجرا
+## Clean old data (after rewrite)
+
+Remove files from the **previous** bot version:
 
 ```bash
-# یک‌بار گزارش در ترمینال
-python3 main.py report
+sudo systemctl stop analysisontel
 
-# ربات تلگرام (فقط با دستور کاربر)
-python3 main.py bot
+sudo rm -f /opt/analysisontel/data/predictions.db
+sudo rm -f /opt/analysisontel/data/last_report.json
+sudo rm -f /opt/analysisontel/data/active_scenario.json
+sudo rm -f /opt/analysisontel/data/rsi_alerts_state.json
+sudo rm -f /opt/analysisontel/data/backtest_last.json
+sudo rm -f /opt/analysisontel/data/tuning_params.json
 
-# ربات + هشدار بسته شدن کندل
-python3 main.py bot-scheduled
-```
+# New bot uses only:
+# /opt/analysisontel/data/notifications_state.json
 
-## دستورات تلگرام
-
-| دستور | عمل |
-|--------|-----|
-| `/start` | راهنما |
-| `/report` | گزارش کامل لحظه‌ای |
-| `/gozaresh` | همان گزارش |
-| `گزارش` | همان گزارش (متن ساده، بدون /) |
-| `/stats` | آمار Win Rate و عملکرد |
-| `/review` | بازبینی آخرین پیش‌بینی vs واقعیت |
-| `/backtest` | بکتست تاریخی استراتژی |
-
-## مرحله ۳ — ثبت پیش‌بینی
-
-- هر گزارش با bias مشخص در SQLite ذخیره می‌شود (`data/predictions.db`)
-- بعد از ۴ ساعت نتیجه خودکار ارزیابی می‌شود (برد/باخت/نامشخص)
-- `/stats` آمار ۷ روز، ۳۰ روز و کل دوره را نشان می‌دهد
-- `/review` آخرین پیش‌بینی را با نتیجه واقعی مقایسه می‌کند
-
-## مرحله ۴ — خود-اصلاح محدود (Auto-Tune)
-
-- بعد از **۱۵+ برد/باخت** در ۳۰ روز، آستانه‌ها خودکار تنظیم می‌شوند
-- Win Rate پایین → سخت‌گیری بیشتر (حد ورود بالاتر)
-- Win Rate خوب → کمی انعطاف بیشتر
-- حداکثر تغییر: ±۲ امتیاز | حداقل فاصله: ۲۴ ساعت
-- پارامترها در `data/tuning_params.json`
-
-## مرحله ۵ (نهایی) — بکتست + اخبار + چارت
-
-- **فیلتر اخبار:** رویدادهای USD/EUR پرریسک → ورود قطعی غیرفعال
-- **بکتست تاریخی:** `/backtest` روی داده Kraken
-- **چارت ۴H** همراه هر `/report` در تلگرام
-- **بکتست هفتگی خودکار** (یکشنبه‌ها)
-
-## منبع داده
-
-Kraken Public API — BTC/USD
-
-## تولید چارت (اختیاری)
-
-```bash
-python3 chart_btc.py
-```
-
-## استقرار روی Ubuntu 24.04 (سرور)
-
-این ربات از **Telegram Polling** استفاده می‌کند — فقط اتصال **خروجی** به تلگرام دارد.
-**هیچ پورتی (۸۰، ۴۴۳، ۸۰۸۰، …) باز نمی‌کند.**
-
-```bash
-# روی سرور — با root یا sudo
-sudo bash deploy/install.sh
-sudo nano /etc/analysisontel.env   # توکن و Chat ID
-sudo systemctl enable --now analysisontel
+sudo chown -R analysisontel:analysisontel /opt/analysisontel/data
+sudo systemctl start analysisontel
 sudo journalctl -u analysisontel -f
 ```
+
+Optional — full reinstall:
+
+```bash
+sudo systemctl stop analysisontel
+sudo rm -rf /opt/analysisontel
+sudo bash /path/to/deploy/install.sh   # BRANCH=cursor/btc-notif-bot-8654
+sudo nano /etc/analysisontel.env       # token + chat id
+sudo systemctl enable --now analysisontel
+```
+
+## Config (`/etc/analysisontel.env`)
+
+```
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_IDS=123456789
+RSI_OVERBOUGHT=70
+RSI_OVERSOLD=30
+SCAN_INTERVAL_MINUTES=2
+```
+
+## Requirements
+
+- Ubuntu 24, outbound HTTPS only (Telegram polling)
+- No inbound ports

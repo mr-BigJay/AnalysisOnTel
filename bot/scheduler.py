@@ -1,4 +1,4 @@
-"""Scheduled candle-close alerts."""
+"""Scheduled BTC notification scanner."""
 
 from __future__ import annotations
 
@@ -9,155 +9,40 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from telegram import Bot
 
-from alerts.price_watcher import check_entry_zone
-from alerts.rsi_watcher import check_rsi_alerts
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TIMEFRAMES
-from report.engine import generate_candle_alert
-from tracking.evaluator import evaluate_pending
-from tracking.tuning import auto_tune
+from config import SCAN_INTERVAL_MINUTES, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS
+from notifications.engine import run_btc_notifications
 
 logger = logging.getLogger(__name__)
 
-_last_candle: dict[str, int] = {}
 
-
-def _get_latest_candle_ts(timeframe: str) -> int:
-    from market.data import fetch_ohlcv
-
-    df = fetch_ohlcv(timeframe)
-    return int(df.index[-1].timestamp())
-
-
-async def _send_alerts(text: str) -> None:
+async def _send_all(texts: list[str]) -> None:
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     for chat_id in TELEGRAM_CHAT_IDS:
-        await bot.send_message(chat_id=int(chat_id), text=text, parse_mode="HTML")
+        for text in texts:
+            await bot.send_message(chat_id=int(chat_id), text=text, parse_mode="HTML")
 
 
-def _check_and_alert(timeframe: str) -> None:
-    if not TELEGRAM_CHAT_IDS or not TELEGRAM_BOT_TOKEN:
-        return
-
-    try:
-        latest = _get_latest_candle_ts(timeframe)
-        if _last_candle.get(timeframe) == latest:
-            return
-        _last_candle[timeframe] = latest
-
-        text = generate_candle_alert(timeframe)
-        if not text:
-            return
-        asyncio.run(_send_alerts(text))
-        logger.info("Candle alert sent for %s at %s", timeframe, datetime.now(timezone.utc))
-    except Exception:
-        logger.exception("Candle alert failed for %s", timeframe)
-
-
-def _run_outcome_evaluation() -> None:
-    try:
-        n = evaluate_pending()
-        if n:
-            logger.info("Evaluated %s pending predictions", n)
-        tuned = auto_tune()
-        if tuned and tuned.last_tune_reason and TELEGRAM_CHAT_IDS and TELEGRAM_BOT_TOKEN:
-            text = (
-                "🔧 <b>خود-اصلاح ربات</b>\n\n"
-                f"{tuned.last_tune_reason}\n\n"
-                f"حد ورود: {tuned.min_entry_score}\n"
-                f"حد چک‌لیست: {tuned.min_checklist_score}\n"
-                f"حداقل ✅: {tuned.min_checklist_passed}/10"
-            )
-            asyncio.run(_send_alerts(text))
-    except Exception:
-        logger.exception("Outcome evaluation failed")
-
-
-def _run_weekly_backtest() -> None:
-    try:
-        from backtest.report import run_and_format
-
-        text = run_and_format()
-        if TELEGRAM_CHAT_IDS and TELEGRAM_BOT_TOKEN:
-            asyncio.run(_send_alerts("📅 <b>بکتست هفتگی</b>\n\n" + text))
-        logger.info("Weekly backtest completed")
-    except Exception:
-        logger.exception("Weekly backtest failed")
-
-
-def _check_entry_zone() -> None:
+def _scan() -> None:
     if not TELEGRAM_CHAT_IDS or not TELEGRAM_BOT_TOKEN:
         return
     try:
-        text = check_entry_zone()
-        if not text:
-            return
-        asyncio.run(_send_alerts(text))
-        logger.info("Entry zone alert sent at %s", datetime.now(timezone.utc))
+        alerts = run_btc_notifications()
+        if alerts:
+            asyncio.run(_send_all(alerts))
+            logger.info("Sent %s BTC alerts at %s", len(alerts), datetime.now(timezone.utc))
     except Exception:
-        logger.exception("Entry zone check failed")
-
-
-def _check_rsi_alerts() -> None:
-    if not TELEGRAM_CHAT_IDS or not TELEGRAM_BOT_TOKEN:
-        return
-    try:
-        messages = check_rsi_alerts()
-        for text in messages:
-            asyncio.run(_send_alerts(text))
-        if messages:
-            logger.info("RSI alerts sent: %s", len(messages))
-    except Exception:
-        logger.exception("RSI alert check failed")
+        logger.exception("Notification scan failed")
 
 
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="UTC")
-
-    # Check every minute if a new candle closed
-    for tf in TIMEFRAMES:
-        scheduler.add_job(
-            _check_and_alert,
-            "interval",
-            minutes=1,
-            args=[tf],
-            id=f"candle_{tf}",
-            replace_existing=True,
-        )
-
     scheduler.add_job(
-        _run_outcome_evaluation,
+        _scan,
         "interval",
-        minutes=15,
-        id="outcome_eval",
+        minutes=SCAN_INTERVAL_MINUTES,
+        id="btc_scan",
         replace_existing=True,
     )
-
-    scheduler.add_job(
-        _run_weekly_backtest,
-        "cron",
-        day_of_week="sun",
-        hour=6,
-        minute=0,
-        id="weekly_backtest",
-        replace_existing=True,
-    )
-
-    scheduler.add_job(
-        _check_entry_zone,
-        "interval",
-        minutes=2,
-        id="entry_zone",
-        replace_existing=True,
-    )
-
-    scheduler.add_job(
-        _check_rsi_alerts,
-        "interval",
-        minutes=2,
-        id="rsi_alerts",
-        replace_existing=True,
-    )
-
     scheduler.start()
-    logger.info("Scheduler started — candles: %s, RSI: %s", list(TIMEFRAMES.keys()), "5m/15m/1h/4h")
+    logger.info("BTC notification scheduler every %s min", SCAN_INTERVAL_MINUTES)
     return scheduler

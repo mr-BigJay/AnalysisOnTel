@@ -5,16 +5,17 @@ from __future__ import annotations
 import pandas as pd
 import requests
 
-from config import KRAKEN_PAIR, STATUS_TIMEFRAMES, TIMEFRAMES
+from config import KRAKEN_PAIR, TIMEFRAMES
 
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 
 
 def fetch_ohlcv(timeframe: str, candles: int | None = None) -> pd.DataFrame:
     """Return OHLCV DataFrame indexed by UTC datetime."""
-    meta = TIMEFRAMES.get(timeframe) or STATUS_TIMEFRAMES.get(timeframe)
+    meta = TIMEFRAMES.get(timeframe)
     if not meta:
         raise ValueError(f"Unknown timeframe: {timeframe}")
+
     limit = candles or meta["candles"]
     params = {"pair": KRAKEN_PAIR, "interval": meta["kraken"]}
     response = requests.get(KRAKEN_OHLC_URL, params=params, timeout=30)
