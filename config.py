@@ -25,6 +25,7 @@ TIMEFRAME_LABELS = {
     "15m": "۱۵ دقیقه",
     "1h": "۱ ساعته",
     "4h": "۴ ساعته",
+    "1d": "روزانه",
 }
 
 TIMEFRAMES = {
@@ -33,7 +34,10 @@ TIMEFRAMES = {
     "15m": {"label": "۱۵ دقیقه", "kraken": 15, "candles": 96},
     "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 120},
     "4h": {"label": "۴ ساعته", "kraken": 240, "candles": 120},
+    "1d": {"label": "روزانه", "kraken": 1440, "candles": 120},
 }
+
+TA_TIMEFRAMES = ["1d", "4h", "1h"]
 
 # Which TFs to scan per signal type
 RSI_ALERT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h"]

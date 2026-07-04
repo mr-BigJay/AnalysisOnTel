@@ -22,6 +22,13 @@ Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or mu
 
 ### Manual (menu)
 - **📡 وضعیت** — trend on 1m / 5m / 15m / 1h / 4h
+- **🌐 بازار** — Funding, Fear&Greed, L/S, OI, macro with Persian interpretation
+- **📊 تکنیکال** — full Technical Analysis report (separate from alerts)
+
+**📊 تکنیکال** covers:
+- Trend (1D / 4H / 1H), support & resistance, price action
+- Classic patterns, candlestick (1H), volume
+- Indicators: RSI, MACD, EMA, SMA, VWAP, Bollinger, ATR, ADX, Stoch RSI, SuperTrend, Ichimoku, Parabolic SAR
 
 ## Commands
 
@@ -29,12 +36,12 @@ Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or mu
 python main.py bot              # Telegram only
 python main.py bot-scheduled    # Telegram + auto alerts
 python main.py status           # terminal status
+python main.py market           # terminal market context
+python main.py technical        # terminal TA report
 python main.py scan             # one notification scan
 ```
 
-Telegram: `/start` `/status` `/market` `/vaziat` `/bazar` — menu: **وضعیت** | **بازار** | **راهنما**
-
-**🌐 بازار** — Funding, Fear&Greed, L/S, OI, macro with Persian interpretation.
+Telegram: `/start` `/status` `/market` `/technical` `/vaziat` `/bazar` `/teknikal` — menu: **وضعیت** | **بازار** | **تکنیکال** | **راهنما**
 
 ## Server install / update
 
