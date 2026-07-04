@@ -20,6 +20,7 @@ TELEGRAM_CHAT_IDS = [
 
 # Kraken OHLC intervals
 TIMEFRAME_LABELS = {
+    "1m": "۱ دقیقه",
     "5m": "۵ دقیقه",
     "15m": "۱۵ دقیقه",
     "1h": "۱ ساعته",
@@ -27,6 +28,7 @@ TIMEFRAME_LABELS = {
 }
 
 TIMEFRAMES = {
+    "1m": {"label": "۱ دقیقه", "kraken": 1, "candles": 120},
     "5m": {"label": "۵ دقیقه", "kraken": 5, "candles": 120},
     "15m": {"label": "۱۵ دقیقه", "kraken": 15, "candles": 96},
     "1h": {"label": "۱ ساعته", "kraken": 60, "candles": 120},
@@ -34,10 +36,10 @@ TIMEFRAMES = {
 }
 
 # Which TFs to scan per signal type
-RSI_ALERT_TIMEFRAMES = ["5m", "15m", "1h", "4h"]
+RSI_ALERT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h"]
 LEVEL_BREAK_TIMEFRAMES = ["1h", "4h"]
 SMC_TIMEFRAMES = ["15m", "1h"]
-STATUS_TIMEFRAMES = ["5m", "15m", "1h", "4h"]
+STATUS_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h"]
 
 RSI_OVERBOUGHT = float(os.getenv("RSI_OVERBOUGHT", "70"))
 RSI_OVERSOLD = float(os.getenv("RSI_OVERSOLD", "30"))

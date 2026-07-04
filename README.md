@@ -5,8 +5,8 @@ Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or mu
 ## Alerts (automatic in `bot-scheduled` mode)
 
 ### Level 1
-- RSI oversold / overbought (cross, closed candle) — 5m, 15m, 1h, 4h
-- RSI divergence — 5m, 15m, 1h, 4h
+- RSI oversold / overbought (cross, closed candle) — 1m, 5m, 15m, 1h, 4h
+- RSI divergence — 1m, 5m, 15m, 1h, 4h
 - Key level break — 1h, 4h
 
 ### Level 2
@@ -21,7 +21,7 @@ Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or mu
 - Volume spike — 1h, 4h
 
 ### Manual (menu)
-- **📡 وضعیت** — trend on 5m / 15m / 1h / 4h
+- **📡 وضعیت** — trend on 1m / 5m / 15m / 1h / 4h
 
 ## Commands
 

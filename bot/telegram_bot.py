@@ -30,7 +30,7 @@ HELP_TEXT = (
     "• Fear & Greed افراطی\n"
     "• Funding افراطی\n"
     "• Volume spike\n\n"
-    "📡 <b>وضعیت</b> — روند 5m/15m/1H/4H\n\n"
+    "📡 <b>وضعیت</b> — روند 1m/5m/15m/1H/4H\n\n"
     "حالت bot-scheduled: هشدارها خودکار ارسال می‌شوند."
 )
 
