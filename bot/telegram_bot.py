@@ -7,9 +7,11 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-from bot.keyboard import BTN_HELP, BTN_STATUS, MENU_ACTIONS, MENU_KEYBOARD
+from bot.keyboard import BTN_HELP, BTN_MARKET, BTN_STATUS, MENU_ACTIONS, MENU_KEYBOARD
+from bot.market_context_format import format_market_context_report
 from bot.status_format import format_status_report
 from config import TELEGRAM_BOT_TOKEN
+from market.context import fetch_market_context
 from market.status import fetch_market_status
 
 logger = logging.getLogger(__name__)
@@ -17,20 +19,11 @@ logger = logging.getLogger(__name__)
 HELP_TEXT = (
     "👋 <b>AnalysisOnTel — BTC Alerts</b>\n\n"
     "ربات هشدار BTC (سطح ۱ تا ۳):\n\n"
-    "<b>سطح ۱</b>\n"
-    "• RSI oversold / overbought\n"
-    "• RSI divergence\n"
-    "• شکست سطح (1H / 4H)\n\n"
-    "<b>سطح ۲</b>\n"
-    "• Liquidity Grab\n"
-    "• MSS\n"
-    "• Breakout + Retest\n\n"
-    "<b>سطح ۳</b>\n"
-    "• رویداد ماکرو\n"
-    "• Fear & Greed افراطی\n"
-    "• Funding افراطی\n"
-    "• Volume spike\n\n"
-    "📡 <b>وضعیت</b> — روند 1m/5m/15m/1H/4H\n\n"
+    "<b>سطح ۱</b> — RSI، divergence، شکست سطح\n"
+    "<b>سطح ۲</b> — Liquidity Grab، MSS، Retest\n"
+    "<b>سطح ۳</b> — ماکرو، Funding، F&G، Volume\n\n"
+    "📡 <b>وضعیت</b> — روند 1m/5m/15m/1H/4H\n"
+    "🌐 <b>بازار</b> — Funding، Fear&Greed، L/S، OI، ماکرو + توضیح فارسی\n\n"
     "حالت bot-scheduled: هشدارها خودکار ارسال می‌شوند."
 )
 
@@ -55,11 +48,26 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(f"❌ خطا: {exc}", reply_markup=MENU_KEYBOARD)
 
 
+async def market_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("⏳ در حال دریافت داده بازار...", reply_markup=MENU_KEYBOARD)
+    try:
+        report = fetch_market_context()
+        text = format_market_context_report(report)
+        if len(text) > 4000:
+            text = text[:3990] + "\n..."
+        await update.message.reply_html(text, reply_markup=MENU_KEYBOARD)
+    except Exception as exc:
+        logger.exception("Market context failed")
+        await update.message.reply_text(f"❌ خطا: {exc}", reply_markup=MENU_KEYBOARD)
+
+
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (update.message.text or "").strip()
     action = MENU_ACTIONS.get(text)
     if action == "status":
         await status_command(update, context)
+    elif action == "market":
+        await market_command(update, context)
     elif action == "help":
         await help_command(update, context)
 
@@ -73,6 +81,8 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("vaziat", status_command))
+    app.add_handler(CommandHandler("market", market_command))
+    app.add_handler(CommandHandler("bazar", market_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler))
     return app
 

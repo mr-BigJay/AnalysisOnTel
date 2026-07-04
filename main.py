@@ -11,8 +11,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="AnalysisOnTel BTC notification bot")
     parser.add_argument(
         "command",
-        choices=["scan", "status", "bot", "bot-scheduled"],
-        help="scan | status | bot | bot-scheduled",
+        choices=["scan", "status", "market", "bot", "bot-scheduled"],
+        help="scan | status | market | bot | bot-scheduled",
     )
     args = parser.parse_args()
 
@@ -29,6 +29,13 @@ def main() -> None:
         from market.status import fetch_market_status
 
         print(re.sub(r"<[^>]+>", "", format_status_report(fetch_market_status())))
+        return
+
+    if args.command == "market":
+        from bot.market_context_format import format_market_context_report
+        from market.context import fetch_market_context
+
+        print(re.sub(r"<[^>]+>", "", format_market_context_report(fetch_market_context())))
         return
 
     if args.command in ("bot", "bot-scheduled"):

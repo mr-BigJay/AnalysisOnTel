@@ -32,7 +32,9 @@ python main.py status           # terminal status
 python main.py scan             # one notification scan
 ```
 
-Telegram: `/start` `/status` `/vaziat` — menu: **وضعیت** | **راهنما**
+Telegram: `/start` `/status` `/market` `/vaziat` `/bazar` — menu: **وضعیت** | **بازار** | **راهنما**
+
+**🌐 بازار** — Funding, Fear&Greed, L/S, OI, macro with Persian interpretation.
 
 ## Server install / update
 

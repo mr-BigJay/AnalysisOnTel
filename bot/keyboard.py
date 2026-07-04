@@ -5,10 +5,14 @@ from __future__ import annotations
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 
 BTN_STATUS = "📡 وضعیت"
+BTN_MARKET = "🌐 بازار"
 BTN_HELP = "❓ راهنما"
 
 MENU_KEYBOARD = ReplyKeyboardMarkup(
-    [[KeyboardButton(BTN_STATUS), KeyboardButton(BTN_HELP)]],
+    [
+        [KeyboardButton(BTN_STATUS), KeyboardButton(BTN_MARKET)],
+        [KeyboardButton(BTN_HELP)],
+    ],
     resize_keyboard=True,
     is_persistent=True,
     input_field_placeholder="یک گزینه انتخاب کنید...",
@@ -17,5 +21,7 @@ MENU_KEYBOARD = ReplyKeyboardMarkup(
 MENU_ACTIONS = {
     BTN_STATUS: "status",
     "وضعیت": "status",
+    BTN_MARKET: "market",
+    "بازار": "market",
     BTN_HELP: "help",
 }
