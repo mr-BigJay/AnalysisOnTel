@@ -53,4 +53,7 @@ FNG_EXTREME_GREED = int(os.getenv("FNG_EXTREME_GREED", "75"))
 FUNDING_EXTREME = float(os.getenv("FUNDING_EXTREME", "0.0003"))
 VOLUME_SPIKE_RATIO = float(os.getenv("VOLUME_SPIKE_RATIO", "2.0"))
 
-SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "2"))
+REPORT_INTERVAL_HOURS = int(os.getenv("REPORT_INTERVAL_HOURS", "4"))
+REPORT_ENABLED = os.getenv("REPORT_ENABLED", "true").lower() in ("1", "true", "yes")
+# UTC hours when 4H briefing runs (5 min after candle close)
+REPORT_CRON_HOURS = os.getenv("REPORT_CRON_HOURS", "0,4,8,12,16,20")

@@ -7,12 +7,14 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup
 BTN_STATUS = "📡 وضعیت"
 BTN_MARKET = "🌐 بازار"
 BTN_TECHNICAL = "📊 تکنیکال"
+BTN_BRIEFING = "📋 گزارش"
 BTN_HELP = "❓ راهنما"
 
 MENU_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton(BTN_STATUS), KeyboardButton(BTN_MARKET)],
-        [KeyboardButton(BTN_TECHNICAL), KeyboardButton(BTN_HELP)],
+        [KeyboardButton(BTN_TECHNICAL), KeyboardButton(BTN_BRIEFING)],
+        [KeyboardButton(BTN_HELP)],
     ],
     resize_keyboard=True,
     is_persistent=True,
@@ -26,5 +28,7 @@ MENU_ACTIONS = {
     "بازار": "market",
     BTN_TECHNICAL: "technical",
     "تکنیکال": "technical",
+    BTN_BRIEFING: "briefing",
+    "گزارش": "briefing",
     BTN_HELP: "help",
 }

@@ -24,6 +24,15 @@ Telegram bot for **BTC-only alerts** (Levels 1–3). No reports, backtest, or mu
 - **📡 وضعیت** — trend on 1m / 5m / 15m / 1h / 4h
 - **🌐 بازار** — Funding, Fear&Greed, L/S, OI, macro with Persian interpretation
 - **📊 تکنیکال** — full Technical Analysis report (separate from alerts)
+- **📋 گزارش** — comprehensive 4-hour briefing (news + TA + ICT scenarios)
+
+**📋 گزارش ۴H** (automatic every 4 hours in `bot-scheduled`):
+- Headline + multi-timeframe trend summary
+- Market news (RSS) + macro calendar
+- Long-term TA (1D) + short-term TA (1H/4H)
+- ICT/SMC: BSL/SSL liquidity, two scenarios with Entry/SL/TP
+- Strategy tips + pending limit orders suggestion
+- Momentum comparison vs previous report
 
 **📊 تکنیکال** covers:
 - Trend (1D / 4H / 1H), support & resistance, price action
@@ -38,10 +47,11 @@ python main.py bot-scheduled    # Telegram + auto alerts
 python main.py status           # terminal status
 python main.py market           # terminal market context
 python main.py technical        # terminal TA report
+python main.py briefing         # terminal 4H briefing
 python main.py scan             # one notification scan
 ```
 
-Telegram: `/start` `/status` `/market` `/technical` `/vaziat` `/bazar` `/teknikal` — menu: **وضعیت** | **بازار** | **تکنیکال** | **راهنما**
+Telegram: `/start` `/status` `/market` `/technical` `/briefing` — menu: **وضعیت** | **بازار** | **تکنیکال** | **گزارش** | **راهنما**
 
 ## Server install / update
 
@@ -71,6 +81,7 @@ sudo rm -f /opt/analysisontel/data/tuning_params.json
 
 # New bot uses only:
 # /opt/analysisontel/data/notifications_state.json
+# /opt/analysisontel/data/briefing_state.json
 
 sudo chown -R analysisontel:analysisontel /opt/analysisontel/data
 sudo systemctl start analysisontel
