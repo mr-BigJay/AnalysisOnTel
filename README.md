@@ -30,7 +30,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Open **http://localhost:8080**
+Open **http://localhost:9443**
 
 ## Server install (fresh Ubuntu)
 
@@ -40,7 +40,7 @@ sudo nano /etc/analysisontel.env   # set WEB_PASSWORD
 sudo systemctl enable --now analysisontel
 ```
 
-Dashboard: `http://YOUR_SERVER_IP:8080`  
+Dashboard: `http://YOUR_SERVER_IP:9443`  
 Login: `admin` / your `WEB_PASSWORD`
 
 ## API
@@ -56,7 +56,7 @@ Login: `admin` / your `WEB_PASSWORD`
 
 ```
 WEB_HOST=0.0.0.0
-WEB_PORT=8080
+WEB_PORT=9443
 WEB_PASSWORD=your_password
 REFRESH_INTERVAL_MINUTES=240
 ```
@@ -72,7 +72,7 @@ REFRESH_INTERVAL_MINUTES=240
 ## Firewall
 
 ```bash
-sudo ufw allow 8080/tcp
+sudo ufw allow 9443/tcp
 ```
 
 For production, put nginx + HTTPS in front.

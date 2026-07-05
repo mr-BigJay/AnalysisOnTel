@@ -14,7 +14,7 @@ KRAKEN_PAIR = "XBTUSD"
 SYMBOL = "BTC/USD"
 
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
-WEB_PORT = int(os.getenv("WEB_PORT", "8080"))
+WEB_PORT = int(os.getenv("WEB_PORT", "9443"))
 WEB_PASSWORD = os.getenv("WEB_PASSWORD", "")  # empty = no auth
 
 REFRESH_INTERVAL_MINUTES = int(os.getenv("REFRESH_INTERVAL_MINUTES", "240"))
