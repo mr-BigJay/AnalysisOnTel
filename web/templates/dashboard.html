@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AnalysisOnTel — BTC Institutional Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <div>
+        <h1>AnalysisOnTel</h1>
+        <p>Institutional BTC Analysis — SMC · ICT · Wyckoff · Order Flow</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="clock">{{ now }}</span>
+      <button id="refreshBtn" class="btn">↻ Refresh Analysis</button>
+    </div>
+  </header>
+
+  <main id="app">
+    {% if not report %}
+    <section class="card empty">Loading analysis… click Refresh if empty.</section>
+    {% else %}
+    <section class="hero card">
+      <div class="hero-left">
+        <div class="price">${{ "{:,.1f}".format(report.price) }}</div>
+        <div class="bias-row">
+          <span class="badge bias-{{ report.bias|lower }}">{{ report.bias }} Bias</span>
+          <span class="stars">{% for i in range(report.stars) %}★{% endfor %}{% for i in range(5-report.stars) %}☆{% endfor %}</span>
+        </div>
+        <p class="narrative">{{ report.narrative }}</p>
+      </div>
+      <div class="hero-right">
+        <div class="verdict verdict-{{ report.verdict|lower|replace(' ', '-') }}">{{ report.verdict }}</div>
+        <div class="metric"><label>Confidence</label><strong>{{ report.confidence }}/100</strong></div>
+        <div class="prob-bar">
+          <div class="bull" style="width: {{ report.bullish_pct }}%">{{ report.bullish_pct }}% Bull</div>
+          <div class="bear" style="width: {{ report.bearish_pct }}%">{{ report.bearish_pct }}% Bear</div>
+        </div>
+        <div class="metric small">Updated {{ report.generated_at }}</div>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="card">
+        <h2>Market Structure</h2>
+        <div class="sub">4H — {{ report.structure["4h"].trend }} ({{ report.structure["4h"].pattern }})</div>
+        <p>{{ report.sections.structure }}</p>
+        {% if report.structure["4h"].events %}
+        <ul>{% for e in report.structure["4h"].events %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Liquidity</h2>
+        <p>{{ report.sections.liquidity }}</p>
+        <div class="levels">
+          <div><span class="tag red">BSL</span> {% for x in report.liquidity.bsl %}${{ "{:,.0f}".format(x) }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+          <div><span class="tag green">SSL</span> {% for x in report.liquidity.ssl %}${{ "{:,.0f}".format(x) }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>ICT</h2>
+        <p>{{ report.sections.ict }}</p>
+        <div class="kv"><span>Daily Bias</span><strong>{{ report.ict.daily_bias }}</strong></div>
+        <div class="kv"><span>Weekly Bias</span><strong>{{ report.ict.weekly_bias }}</strong></div>
+        <div class="kv"><span>Kill Zone</span><strong>{{ report.ict.kill_zone }}</strong></div>
+        {% if report.ict.order_blocks %}
+        <h3>Order Blocks</h3>
+        <ul>{% for ob in report.ict.order_blocks %}<li>{{ ob.type }}: ${{ "{:,.0f}".format(ob.low) }}–${{ "{:,.0f}".format(ob.high) }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if report.ict.fvgs %}
+        <h3>FVG</h3>
+        <ul>{% for f in report.ict.fvgs %}<li>{{ f.type }}: ${{ "{:,.0f}".format(f.low) }}–${{ "{:,.0f}".format(f.high) }}</li>{% endfor %}</ul>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Wyckoff</h2>
+        <p>{{ report.sections.wyckoff }}</p>
+        {% if report.wyckoff.event %}<div class="alert">{{ report.wyckoff.event }}</div>{% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Order Flow</h2>
+        <p>{{ report.sections.orderflow }}</p>
+      </section>
+
+      <section class="card">
+        <h2>Macro</h2>
+        <p>{{ report.sections.macro }}</p>
+        {% if report.macro.headlines %}
+        <h3>News</h3>
+        <ul class="news">{% for h in report.macro.headlines %}<li>{{ h.title }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if report.macro.events %}
+        <h3>Calendar</h3>
+        <ul>{% for e in report.macro.events %}<li>{{ e.time }} — {{ e.title }} ({{ e.country }}, {{ e.impact }})</li>{% endfor %}</ul>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="card confirmations">
+      <h2>Confirmations <span class="count">{{ report.confirmation_count }}/8</span></h2>
+      <div class="conf-grid">
+        {% for k, v in report.confirmations.items() %}
+        <div class="conf {{ 'ok' if v else 'no' }}">{{ k|replace('_', ' ')|title }}</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if report.trade %}
+    <section class="card trade">
+      <h2>Trade Setup — {{ report.trade.style }}</h2>
+      <div class="trade-grid">
+        <div><label>Entry</label><strong>${{ "{:,.0f}".format(report.trade.entry_low) }} – ${{ "{:,.0f}".format(report.trade.entry_high) }}</strong></div>
+        <div><label>Stop Loss</label><strong class="red">${{ "{:,.0f}".format(report.trade.stop_loss) }}</strong></div>
+        <div><label>TP1</label><strong class="green">${{ "{:,.0f}".format(report.trade.tp1) }}</strong></div>
+        <div><label>TP2</label><strong class="green">${{ "{:,.0f}".format(report.trade.tp2) }}</strong></div>
+        <div><label>TP3</label><strong class="green">${{ "{:,.0f}".format(report.trade.tp3) }}</strong></div>
+        <div><label>R:R</label><strong>{{ report.trade.risk_reward }}</strong></div>
+        <div><label>Max Leverage</label><strong>{{ report.trade.leverage }}x</strong></div>
+        <div><label>Max Risk</label><strong>1% / trade</strong></div>
+      </div>
+      <p><strong>Why:</strong> {{ report.trade.reason }}</p>
+      <p><strong>Invalidation:</strong> {{ report.trade.invalidation }}</p>
+    </section>
+    {% else %}
+    <section class="card trade wait-card">
+      <h2>No Active Trade Setup</h2>
+      <p>Verdict: <strong>{{ report.verdict }}</strong> — wait for 5+ core confirmations and clear premium/discount alignment.</p>
+    </section>
+    {% endif %}
+    {% endif %}
+  </main>
+
+  <footer>
+    <p>AnalysisOnTel v2 — Institutional framework. Indicators are confirmation only. Not financial advice.</p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

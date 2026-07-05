@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Runtime data
+data/
+output/
+
+# Legacy (removed)
+bot/
+notifications/
+
+# IDE
+.idea/
+.vscode/
